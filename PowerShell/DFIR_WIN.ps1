@@ -55,9 +55,32 @@ netsh wlan show profiles | Out-File "C:\Temp\DFIR_Output\wifi_profiles.txt";
 Get-Date | Out-File -append "C:\Temp\DFIR_Output\wifi_profiles.txt"
 
 #Collect list of all firewall rules on the system
-netsh wlan show profiles | Out-File "C:\Temp\DFIR_Output\firewall_settings.txt";
-"`n`nDate of Artifact Collection:" | Out-File -append "C:\Temp\DFIR_Output\firewall_settings.txt";
-Get-Date | Out-File -append "C:\Temp\DFIR_Output\firewall_settings.txt"
+$fwRules = Get-NetFirewallRule | ForEach-Object {
+    # Collect the port filter (protocol, local port, remote port)
+    $portFilter = $_ | Get-NetFirewallPortFilter
+    # Collect the address filter (remote address)
+    $addrFilter = $_ | Get-NetFirewallAddressFilter
+
+    # Return a custom object with all the relevant fields
+    [PSCustomObject]@{
+        Name           = $_.Name
+        DisplayName    = $_.DisplayName
+        DisplayGroup   = $_.DisplayGroup
+        Protocol       = $portFilter.Protocol
+        LocalPort      = $portFilter.LocalPort
+        RemotePort     = $portFilter.RemotePort
+        RemoteAddress  = $addrFilter.RemoteAddress
+        Enabled        = $_.Enabled
+        Profile        = $_.Profile
+        Direction      = $_.Direction
+        Action         = $_.Action
+    }
+}
+
+# Export firewall rules to a CSV file
+$fwRules | Export-Csv -Path "C:\Temp\DFIR_Output\firewall_settings.csv" -NoTypeInformation
+"`n`nDate of Artifact Collection:" | Out-File -append "C:\Temp\DFIR_Output\firewall_settings.csv";
+Get-Date | Out-File -append "C:\Temp\DFIR_Output\firewall_settings.csv"
 
 
 #==========================================
