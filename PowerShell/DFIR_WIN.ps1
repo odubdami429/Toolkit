@@ -29,7 +29,7 @@ Get-ChildItem C:\Windows\System32\Tasks | Out-File "C:\Temp\DFIR_Output\schedule
 "`n`nDate of Artifact Collection:" | Out-File -append "C:\Temp\DFIR_Output\scheduled_task.txt";
 Get-Date | Out-File -append "C:\Temp\DFIR_Output\scheduled_task.txt"
 
-#Collect list of system-level install apps 
+#Collect list of system-level installed apps 
 Get-ItemProperty `
   HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*, `
   HKLM:\Software\Wow6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*, `
@@ -39,7 +39,7 @@ Get-ItemProperty `
 "`n`nDate of Artifact Collection:" | Out-File -append "C:\Temp\DFIR_Output\system_installed_apps.csv";
 Get-Date | Out-File -append "C:\Temp\DFIR_Output\system_installed_apps.csv"
 
-#Collect list of user-level install apps 
+#Collect list of user-level installed apps 
 # Gather all user SIDs from HKEY_USERS except .DEFAULT and *_Classes
 $allUserSIDs = Get-ChildItem 'Registry::HKEY_USERS' `
   | Where-Object { $_.Name -notmatch "(_Classes$|\.DEFAULT$)" }
