@@ -30,9 +30,14 @@ Get-ChildItem C:\Windows\System32\Tasks | Out-File "C:\Temp\DFIR_Output\schedule
 Get-Date | Out-File -append "C:\Temp\DFIR_Output\scheduled_task.txt"
 
 #Collect list of application install events
-Get-EventLog -LogName Application -InstanceId 1033 | Format-Table -Wrap -Autosize | Out-File "C:\Temp\DFIR_Output\app_install_events.txt";
-"`n`nDate of Artifact Collection:" | Out-File -append "C:\Temp\DFIR_Output\app_install_events.txt";
-Get-Date | Out-File -append "C:\Temp\DFIR_Output\app_install_events.txt"
+Get-ItemProperty `
+  HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*, `
+  HKLM:\Software\Wow6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*, `
+  HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\* `
+| Select-Object DisplayName, DisplayVersion, Publisher, InstallDate `
+| Export-Csv -Path "C:\Temp\DFIR_Output\installed_apps.csv" -NoTypeInformation
+"`n`nDate of Artifact Collection:" | Out-File -append "C:\Temp\DFIR_Output\installed_apps.csv";
+Get-Date | Out-File -append "C:\Temp\DFIR_Output\installed_apps.csv"
 
 
 #==========================================
