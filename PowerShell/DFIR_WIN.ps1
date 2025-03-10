@@ -54,11 +54,15 @@ netsh wlan show profiles | Out-File "C:\Temp\DFIR_Output\wifi_profiles.txt";
 "`n`nDate of Artifact Collection:" | Out-File -append "C:\Temp\DFIR_Output\wifi_profiles.txt";
 Get-Date | Out-File -append "C:\Temp\DFIR_Output\wifi_profiles.txt"
 
+#Collect list of all firewall rules on the system
+netsh wlan show profiles | Out-File "C:\Temp\DFIR_Output\firewall_settings.txt";
+"`n`nDate of Artifact Collection:" | Out-File -append "C:\Temp\DFIR_Output\firewall_settings.txt";
+Get-Date | Out-File -append "C:\Temp\DFIR_Output\firewall_settings.txt"
+
 
 #==========================================
 #Windows and Browser History log files
 #==========================================
-
 
 #Creates a folder that will contain all copied windows event logs
 New-Item -Path "C:\Temp\DFIR_Output\" -Name "windows_logs" -ItemType "directory";
@@ -90,24 +94,24 @@ if ($Manufacturer -like "*Amazon EC2*") {
     $d_drive_users = (Get-ChildItem D:\Users).Name
 
     foreach ($d_drive_users in $d_drive_users) {
-    #Grab the Chrome history files for D drive users
-	Copy-Item "D:\Users\${d_drive_users}\AppData\Local\Google\Chrome\User Data\Default\History" "C:\Temp\DFIR_Output\browser_history\${d_drive_users}_Chrome_Default_History"
-    Copy-Item "D:\Users\${d_drive_users}\AppData\Local\Google\Chrome\User Data\Profile 1\History" "C:\Temp\DFIR_Output\browser_history\${d_drive_users}_Chrome_Profile_1_History"
-    Copy-Item "D:\Users\${d_drive_users}\AppData\Local\Google\Chrome\User Data\Profile 2\History" "C:\Temp\DFIR_Output\browser_history\${d_drive_users}_Chrome_Profile_2_History"
-    Copy-Item "D:\Users\${d_drive_users}\AppData\Local\Google\Chrome\User Data\Profile 3\History" "C:\Temp\DFIR_Output\browser_history\${d_drive_users}_Chrome_Profile_3_History"
-    Copy-Item "D:\Users\${d_drive_users}\AppData\Local\Google\Chrome\User Data\Profile 4\History" "C:\Temp\DFIR_Output\browser_history\${d_drive_users}_Chrome_Profile_4_History"
+        #Grab the Chrome history files for D drive users
+        Copy-Item "D:\Users\${d_drive_users}\AppData\Local\Google\Chrome\User Data\Default\History" "C:\Temp\DFIR_Output\browser_history\${d_drive_users}_Chrome_Default_History"
+        Copy-Item "D:\Users\${d_drive_users}\AppData\Local\Google\Chrome\User Data\Profile 1\History" "C:\Temp\DFIR_Output\browser_history\${d_drive_users}_Chrome_Profile_1_History"
+        Copy-Item "D:\Users\${d_drive_users}\AppData\Local\Google\Chrome\User Data\Profile 2\History" "C:\Temp\DFIR_Output\browser_history\${d_drive_users}_Chrome_Profile_2_History"
+        Copy-Item "D:\Users\${d_drive_users}\AppData\Local\Google\Chrome\User Data\Profile 3\History" "C:\Temp\DFIR_Output\browser_history\${d_drive_users}_Chrome_Profile_3_History"
+        Copy-Item "D:\Users\${d_drive_users}\AppData\Local\Google\Chrome\User Data\Profile 4\History" "C:\Temp\DFIR_Output\browser_history\${d_drive_users}_Chrome_Profile_4_History"
 
-     #Grab the Edge history files for D drive users
-	Copy-Item "D:\Users\${d_drive_users}\AppData\Local\Microsoft\Edge\User Data\Default\History" "C:\Temp\DFIR_Output\browser_history\${d_drive_users}_Edge_Default_History"
-    Copy-Item "D:\Users\${d_drive_users}\AppData\Local\Microsoft\Edge\User Data\Profile 1\History" "C:\Temp\DFIR_Output\browser_history\${d_drive_users}_Edge_Profile_1_History"
-    Copy-Item "D:\Users\${d_drive_users}\AppData\Local\Microsoft\Edge\User Data\Profile 2\History" "C:\Temp\DFIR_Output\browser_history\${d_drive_users}_Edge_Profile_2_History"
-    Copy-Item "D:\Users\${d_drive_users}\AppData\Local\Microsoft\Edge\User Data\Profile 3\History" "C:\Temp\DFIR_Output\browser_history\${d_drive_users}_Edge_Profile_3_History"
-    Copy-Item "D:\Users\${d_drive_users}\AppData\Local\Microsoft\Edge\User Data\Profile 4\History" "C:\Temp\DFIR_Output\browser_history\${d_drive_users}_Edge_Profile 4 History"
+        #Grab the Edge history files for D drive users
+        Copy-Item "D:\Users\${d_drive_users}\AppData\Local\Microsoft\Edge\User Data\Default\History" "C:\Temp\DFIR_Output\browser_history\${d_drive_users}_Edge_Default_History"
+        Copy-Item "D:\Users\${d_drive_users}\AppData\Local\Microsoft\Edge\User Data\Profile 1\History" "C:\Temp\DFIR_Output\browser_history\${d_drive_users}_Edge_Profile_1_History"
+        Copy-Item "D:\Users\${d_drive_users}\AppData\Local\Microsoft\Edge\User Data\Profile 2\History" "C:\Temp\DFIR_Output\browser_history\${d_drive_users}_Edge_Profile_2_History"
+        Copy-Item "D:\Users\${d_drive_users}\AppData\Local\Microsoft\Edge\User Data\Profile 3\History" "C:\Temp\DFIR_Output\browser_history\${d_drive_users}_Edge_Profile_3_History"
+        Copy-Item "D:\Users\${d_drive_users}\AppData\Local\Microsoft\Edge\User Data\Profile 4\History" "C:\Temp\DFIR_Output\browser_history\${d_drive_users}_Edge_Profile 4 History"
 
-    #Creates a folder that will contain all copied windows logs and powershell history files
-    New-Item -Path "C:\Temp\DFIR_Output\" -Name "${d_drive_users} powershell_logs" -ItemType "directory";
-    Copy-Item "D:\Users\${d_drive_users}\AppData\Roaming\Microsoft\Windows\PowerShell\PSReadLine\ConsoleHost_history.txt" "C:\Temp\DFIR_Output\${d_drive_users} powershell_logs"
-    Copy-Item "D:\Users\${d_drive_users}\AppData\Roaming\Microsoft\Windows\PowerShell\PSReadLine\Visual Studio Code Host_history.txt" "C:\Temp\DFIR_Output\${d_drive_users} powershell_logs"
+        #Creates a folder that will contain all copied windows logs and powershell history files
+        New-Item -Path "C:\Temp\DFIR_Output\" -Name "${d_drive_users} powershell_logs" -ItemType "directory";
+        Copy-Item "D:\Users\${d_drive_users}\AppData\Roaming\Microsoft\Windows\PowerShell\PSReadLine\ConsoleHost_history.txt" "C:\Temp\DFIR_Output\${d_drive_users} powershell_logs"
+        Copy-Item "D:\Users\${d_drive_users}\AppData\Roaming\Microsoft\Windows\PowerShell\PSReadLine\Visual Studio Code Host_history.txt" "C:\Temp\DFIR_Output\${d_drive_users} powershell_logs"
     }
 
 }
@@ -123,25 +127,25 @@ else {
     #Copy over the Powershell history log file and chrome history file for all user profiles on the endpoint
     $c_drive_users = (Get-ChildItem C:\Users).Name
     foreach ($c_drive_users in $c_drive_users) {
-    #Grab the Chrome history files for C drive users
-	Copy-Item "C:\Users\${c_drive_users}\AppData\Local\Google\Chrome\User Data\Default\History" "C:\Temp\DFIR_Output\browser_history\${c_drive_users}_Chrome_Default_History"
-    Copy-Item "C:\Users\${c_drive_users}\AppData\Local\Google\Chrome\User Data\Profile 1\History" "C:\Temp\DFIR_Output\browser_history\${c_drive_users}_Chrome_Profile_1_History"
-    Copy-Item "C:\Users\${c_drive_users}\AppData\Local\Google\Chrome\User Data\Profile 2\History" "C:\Temp\DFIR_Output\browser_history\${c_drive_users}_Chrome_Profile_2_History"
-    Copy-Item "C:\Users\${c_drive_users}\AppData\Local\Google\Chrome\User Data\Profile 3\History" "C:\Temp\DFIR_Output\browser_history\${c_drive_users}_Chrome_Profile_3_History"
-    Copy-Item "C:\Users\${c_drive_users}\AppData\Local\Google\Chrome\User Data\Profile 4\History" "C:\Temp\DFIR_Output\browser_history\${c_drive_users}_Chrome_Profile 4 History"
+        #Grab the Chrome history files for C drive users
+        Copy-Item "C:\Users\${c_drive_users}\AppData\Local\Google\Chrome\User Data\Default\History" "C:\Temp\DFIR_Output\browser_history\${c_drive_users}_Chrome_Default_History"
+        Copy-Item "C:\Users\${c_drive_users}\AppData\Local\Google\Chrome\User Data\Profile 1\History" "C:\Temp\DFIR_Output\browser_history\${c_drive_users}_Chrome_Profile_1_History"
+        Copy-Item "C:\Users\${c_drive_users}\AppData\Local\Google\Chrome\User Data\Profile 2\History" "C:\Temp\DFIR_Output\browser_history\${c_drive_users}_Chrome_Profile_2_History"
+        Copy-Item "C:\Users\${c_drive_users}\AppData\Local\Google\Chrome\User Data\Profile 3\History" "C:\Temp\DFIR_Output\browser_history\${c_drive_users}_Chrome_Profile_3_History"
+        Copy-Item "C:\Users\${c_drive_users}\AppData\Local\Google\Chrome\User Data\Profile 4\History" "C:\Temp\DFIR_Output\browser_history\${c_drive_users}_Chrome_Profile 4 History"
 
-    #Grab the Edge history files for C drive users
-	Copy-Item "C:\Users\${c_drive_users}\AppData\Local\Microsoft\Edge\User Data\Default\History" "C:\Temp\DFIR_Output\browser_history\${c_drive_users}_Edge_Default_History"
-    Copy-Item "C:\Users\${c_drive_users}\AppData\Local\Microsoft\Edge\User Data\Profile 1\History" "C:\Temp\DFIR_Output\browser_history\${c_drive_users}_Edge_Profile_1_History"
-    Copy-Item "C:\Users\${c_drive_users}\AppData\Local\Microsoft\Edge\User Data\Profile 2\History" "C:\Temp\DFIR_Output\browser_history\${c_drive_users}_Edge_Profile_2_History"
-    Copy-Item "C:\Users\${c_drive_users}\AppData\Local\Microsoft\Edge\User Data\Profile 3\History" "C:\Temp\DFIR_Output\browser_history\${c_drive_users}_Edge_Profile_3_History"
-    Copy-Item "C:\Users\${c_drive_users}\AppData\Local\Microsoft\Edge\User Data\Profile 4\History" "C:\Temp\DFIR_Output\browser_history\${c_drive_users}_Edge_Profile 4 History"
+        #Grab the Edge history files for C drive users
+        Copy-Item "C:\Users\${c_drive_users}\AppData\Local\Microsoft\Edge\User Data\Default\History" "C:\Temp\DFIR_Output\browser_history\${c_drive_users}_Edge_Default_History"
+        Copy-Item "C:\Users\${c_drive_users}\AppData\Local\Microsoft\Edge\User Data\Profile 1\History" "C:\Temp\DFIR_Output\browser_history\${c_drive_users}_Edge_Profile_1_History"
+        Copy-Item "C:\Users\${c_drive_users}\AppData\Local\Microsoft\Edge\User Data\Profile 2\History" "C:\Temp\DFIR_Output\browser_history\${c_drive_users}_Edge_Profile_2_History"
+        Copy-Item "C:\Users\${c_drive_users}\AppData\Local\Microsoft\Edge\User Data\Profile 3\History" "C:\Temp\DFIR_Output\browser_history\${c_drive_users}_Edge_Profile_3_History"
+        Copy-Item "C:\Users\${c_drive_users}\AppData\Local\Microsoft\Edge\User Data\Profile 4\History" "C:\Temp\DFIR_Output\browser_history\${c_drive_users}_Edge_Profile 4 History"
 
-    #Creates a folder that will contain all copied powershell history files
-    New-Item -Path "C:\Temp\DFIR_Output\" -Name "${c_drive_users} powershell_logs" -ItemType "directory";
-    #Copy over the powerhell command history file
-    Copy-Item "C:\Users\${c_drive_users}\AppData\Roaming\Microsoft\Windows\PowerShell\PSReadLine\ConsoleHost_history.txt" "C:\Temp\DFIR_Output\${c_drive_users} powershell_logs"
-    Copy-Item "C:\Users\${c_drive_users}\AppData\Roaming\Microsoft\Windows\PowerShell\PSReadLine\Visual Studio Code Host_history.txt" "C:\Temp\DFIR_Output\windows_logs\${c_drive_users} powershell_logs"
+        #Creates a folder that will contain all copied powershell history files
+        New-Item -Path "C:\Temp\DFIR_Output\" -Name "${c_drive_users} powershell_logs" -ItemType "directory";
+        #Copy over the powerhell command history file
+        Copy-Item "C:\Users\${c_drive_users}\AppData\Roaming\Microsoft\Windows\PowerShell\PSReadLine\ConsoleHost_history.txt" "C:\Temp\DFIR_Output\${c_drive_users} powershell_logs"
+        Copy-Item "C:\Users\${c_drive_users}\AppData\Roaming\Microsoft\Windows\PowerShell\PSReadLine\Visual Studio Code Host_history.txt" "C:\Temp\DFIR_Output\windows_logs\${c_drive_users} powershell_logs"
     }
 
   }
