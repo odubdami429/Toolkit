@@ -29,15 +29,50 @@ Get-ChildItem C:\Windows\System32\Tasks | Out-File "C:\Temp\DFIR_Output\schedule
 "`n`nDate of Artifact Collection:" | Out-File -append "C:\Temp\DFIR_Output\scheduled_task.txt";
 Get-Date | Out-File -append "C:\Temp\DFIR_Output\scheduled_task.txt"
 
-#Collect list of application install events
+#Collect list of system-level install apps 
 Get-ItemProperty `
   HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*, `
   HKLM:\Software\Wow6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*, `
   HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\* `
 | Select-Object DisplayName, DisplayVersion, Publisher, InstallDate `
-| Export-Csv -Path "C:\Temp\DFIR_Output\installed_apps.csv" -NoTypeInformation
-"`n`nDate of Artifact Collection:" | Out-File -append "C:\Temp\DFIR_Output\installed_apps.csv";
-Get-Date | Out-File -append "C:\Temp\DFIR_Output\installed_apps.csv"
+| Export-Csv -Path "C:\Temp\DFIR_Output\system_installed_apps.csv" -NoTypeInformation
+"`n`nDate of Artifact Collection:" | Out-File -append "C:\Temp\DFIR_Output\system_installed_apps.csv";
+Get-Date | Out-File -append "C:\Temp\DFIR_Output\system_installed_apps.csv"
+
+#Collect list of user-level install apps 
+# Gather all user SIDs from HKEY_USERS except .DEFAULT and *_Classes
+$allUserSIDs = Get-ChildItem 'Registry::HKEY_USERS' `
+  | Where-Object { $_.Name -notmatch "(_Classes$|\.DEFAULT$)" }
+
+# Initialize a list to hold all uninstall entries
+$allUninstalls = @()
+
+foreach ($sid in $allUserSIDs) {
+    $uninstallPath = "$($sid.Name)\Software\Microsoft\Windows\CurrentVersion\Uninstall"
+    
+    if (Test-Path "Registry::$uninstallPath") {
+        Get-ChildItem "Registry::$uninstallPath" -ErrorAction SilentlyContinue |
+        ForEach-Object {
+            # Grab the uninstall properties for each subkey
+            $props = Get-ItemProperty $_.PSPath
+            
+            # Create a new object including the SID as a field
+            $allUninstalls += [PSCustomObject]@{
+                UserSID       = $sid.Name
+                PSChildName   = $props.PSChildName
+                DisplayName   = $props.DisplayName
+                DisplayVersion= $props.DisplayVersion
+                Publisher     = $props.Publisher
+                InstallDate   = $props.InstallDate
+            }
+        }
+    }
+}
+
+# Now export all collected entries to CSV
+$allUninstalls | Export-Csv -Path "C:\Temp\DFIR_Output\user_installed_apps.csv" -NoTypeInformation
+"`n`nDate of Artifact Collection:" | Out-File -append "C:\Temp\DFIR_Output\user_installed_apps.csv";
+Get-Date | Out-File -append "C:\Temp\DFIR_Output\user_installed_apps.csv"
 
 
 #==========================================
