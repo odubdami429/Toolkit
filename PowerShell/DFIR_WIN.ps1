@@ -35,9 +35,9 @@ Get-ItemProperty `
   HKLM:\Software\Wow6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*, `
   HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\* `
 | Select-Object DisplayName, DisplayVersion, Publisher, InstallDate `
-| Export-Csv -Path "C:\Temp\DFIR_Output\system_installed_apps.csv" -NoTypeInformation
-"`n`nDate of Artifact Collection:" | Out-File -append "C:\Temp\DFIR_Output\system_installed_apps.csv";
-Get-Date | Out-File -append "C:\Temp\DFIR_Output\system_installed_apps.csv"
+| Export-Csv -Path "C:\Temp\DFIR_Output\system_level_installed_apps.csv" -NoTypeInformation
+"`n`nDate of Artifact Collection:" | Out-File -append "C:\Temp\DFIR_Output\system_level_installed_apps.csv";
+Get-Date | Out-File -append "C:\Temp\DFIR_Output\system_level_installed_apps.csv"
 
 #Collect list of user-level installed apps 
 # Gather all user SIDs from HKEY_USERS except .DEFAULT and *_Classes
@@ -70,9 +70,9 @@ foreach ($sid in $allUserSIDs) {
 }
 
 # Now export all collected entries to CSV
-$allUninstalls | Export-Csv -Path "C:\Temp\DFIR_Output\user_installed_apps.csv" -NoTypeInformation
-"`n`nDate of Artifact Collection:" | Out-File -append "C:\Temp\DFIR_Output\user_installed_apps.csv";
-Get-Date | Out-File -append "C:\Temp\DFIR_Output\user_installed_apps.csv"
+$allUninstalls | Export-Csv -Path "C:\Temp\DFIR_Output\user_level_installed_apps.csv" -NoTypeInformation
+"`n`nDate of Artifact Collection:" | Out-File -append "C:\Temp\DFIR_Output\user_level_installed_apps.csv";
+Get-Date | Out-File -append "C:\Temp\DFIR_Output\user_level_installed_apps.csv"
 
 
 #==========================================
