@@ -1,5 +1,4 @@
 #======================================================================================
-#Author: Dami Odubanjo
 #This script collects various DFIR artifact from a Windows Endpoint by saving the output of various commands to a txt file 
 #Once the the script is done the output files will be placed in C:\Temp\DFIR_Output
 #======================================================================================
