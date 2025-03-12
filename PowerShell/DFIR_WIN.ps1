@@ -15,21 +15,20 @@ New-Item -Path "C:\Temp" -Name "DFIR_Output" -ItemType "directory";
 systeminfo | Out-File "C:\Temp\DFIR_Output\system_info.txt";
 query user | Out-File -append "C:\Temp\DFIR_Output\system_info.txt";
 whoami /all | Out-File -append "C:\Temp\DFIR_Output\system_info.txt";
-"`n`nDate of Artifact Collection:" | Out-File -append "C:\Temp\DFIR_Output\system_info.txt";
-Get-Date | Out-File -append "C:\Temp\DFIR_Output\system_info.txt";
-Get-Timezone | Out-File -append "C:\Temp\DFIR_Output\system_info.txt"
+"`n`nDate of Artifact Collection in UTC Time:" | Out-File -append "C:\Temp\DFIR_Output\system_info.txt";
+(Get-Date).ToUniversalTime() | Out-File -append "C:\Temp\DFIR_Output\system_info.txt";
 
 #Collect list of Running Processes
 tasklist /v | Out-File "C:\Temp\DFIR_Output\running_processes.txt";
-"`n`nDate of Artifact Collection:" | Out-File -append "C:\Temp\DFIR_Output\running_processes.txt";
-Get-Date | Out-File -append "C:\Temp\DFIR_Output\running_processes.txt"
-Get-Timezone | Out-File -append "C:\Temp\DFIR_Output\running_processes.txt"
+"`n`nDate of Artifact Collection in UTC Time:" | Out-File -append "C:\Temp\DFIR_Output\running_processes.txt";
+(Get-Date).ToUniversalTime() | Out-File -append "C:\Temp\DFIR_Output\running_processes.txt"
+
 
 #Collect list of scheduled task
 Get-ChildItem C:\Windows\System32\Tasks | Out-File "C:\Temp\DFIR_Output\scheduled_task.txt";
-"`n`nDate of Artifact Collection:" | Out-File -append "C:\Temp\DFIR_Output\scheduled_task.txt";
-Get-Date | Out-File -append "C:\Temp\DFIR_Output\scheduled_task.txt"
-Get-Timezone | Out-File -append "C:\Temp\DFIR_Output\scheduled_task.txt"
+"`n`nDate of Artifact Collection in UTC Time:" | Out-File -append "C:\Temp\DFIR_Output\scheduled_task.txt";
+(Get-Date).ToUniversalTime() | Out-File -append "C:\Temp\DFIR_Output\scheduled_task.txt"
+
 
 #Collect list of system-level installed apps 
 Get-ItemProperty `
@@ -38,9 +37,9 @@ Get-ItemProperty `
   HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\* `
 | Select-Object DisplayName, DisplayVersion, Publisher, InstallDate `
 | Export-Csv -Path "C:\Temp\DFIR_Output\system_level_installed_apps.csv" -NoTypeInformation
-"`n`nDate of Artifact Collection:" | Out-File -append "C:\Temp\DFIR_Output\system_level_installed_apps.csv";
-Get-Date | Out-File -append "C:\Temp\DFIR_Output\system_level_installed_apps.csv"
-Get-Timezone | Out-File -append "C:\Temp\DFIR_Output\system_level_installed_apps.csv"
+"`n`nDate of Artifact Collection in UTC Time:" | Out-File -append "C:\Temp\DFIR_Output\system_level_installed_apps.csv";
+(Get-Date).ToUniversalTime() | Out-File -append "C:\Temp\DFIR_Output\system_level_installed_apps.csv"
+
 
 #Collect list of user-level installed apps 
 # Gather all user SIDs from HKEY_USERS except .DEFAULT and *_Classes
@@ -74,9 +73,9 @@ foreach ($sid in $allUserSIDs) {
 
 # Now export all collected entries to CSV
 $allUninstalls | Export-Csv -Path "C:\Temp\DFIR_Output\user_level_installed_apps.csv" -NoTypeInformation
-"`n`nDate of Artifact Collection:" | Out-File -append "C:\Temp\DFIR_Output\user_level_installed_apps.csv";
-Get-Date | Out-File -append "C:\Temp\DFIR_Output\user_level_installed_apps.csv"
-Get-Timezone | Out-File -append "C:\Temp\DFIR_Output\user_level_installed_apps.csv"
+"`n`nDate of Artifact Collection in UTC Time:" | Out-File -append "C:\Temp\DFIR_Output\user_level_installed_apps.csv";
+(Get-Date).ToUniversalTime() | Out-File -append "C:\Temp\DFIR_Output\user_level_installed_apps.csv"
+
 
 #==========================================
 #Collecting Networking Information
@@ -84,15 +83,14 @@ Get-Timezone | Out-File -append "C:\Temp\DFIR_Output\user_level_installed_apps.c
 
 #Collect list of UDP connections
 Get-NetUDPEndpoint  | Select-Object LocalAddress,LocalPort,CreationTime,OwningProcess,@{Name="Process";Expression={(Get-Process -Id $_.OwningProcess).ProcessName}} | ft -auto | Out-File "C:\Temp\DFIR_Output\udp_connections.txt";
-"`n`nDate of Artifact Collection:" | Out-File -append "C:\Temp\DFIR_Output\udp_connections.txt";
-Get-Date | Out-File -append "C:\Temp\DFIR_Output\udp_connections.txt"
-Get-Timezone | Out-File -append "C:\Temp\DFIR_Output\udp_connections.txt"
+"`n`nDate of Artifact Collection in UTC Time:" | Out-File -append "C:\Temp\DFIR_Output\udp_connections.txt";
+(Get-Date).ToUniversalTime() | Out-File -append "C:\Temp\DFIR_Output\udp_connections.txt"
+
 
 #Collect list of TCP connections
 Get-NetTCPConnection |  select-object LocalAddress,LocalPort,RemoteAddress,RemotePort,State,CreationTime,OwningProcess, @{Name="Process";Expression={(Get-Process -Id $_.OwningProcess).ProcessName}} | ft -auto | Out-File "C:\Temp\DFIR_Output\tcp_connections.txt";
-"`n`nDate of Artifact Collection:" | Out-File -append "C:\Temp\DFIR_Output\tcp_connections.txt";
-Get-Date | Out-File -append "C:\Temp\DFIR_Output\tcp_connections.txt"
-Get-Timezone | Out-File -append "C:\Temp\DFIR_Output\tcp_connections.txt"
+"`n`nDate of Artifact Collection in UTC Time:" | Out-File -append "C:\Temp\DFIR_Output\tcp_connections.txt";
+(Get-Date).ToUniversalTime() | Out-File -append "C:\Temp\DFIR_Output\tcp_connections.txt"
 
 
 #Collect list of all firewall rules on the system
@@ -120,9 +118,8 @@ $fwRules = Get-NetFirewallRule | ForEach-Object {
 
 # Export firewall rules to a CSV file
 $fwRules | Export-Csv -Path "C:\Temp\DFIR_Output\firewall_settings.csv" -NoTypeInformation
-"`n`nDate of Artifact Collection:" | Out-File -append "C:\Temp\DFIR_Output\firewall_settings.csv";
-Get-Date | Out-File -append "C:\Temp\DFIR_Output\firewall_settings.csv"
-Get-Timezone | Out-File -append "C:\Temp\DFIR_Output\firewall_settings.csv"
+"`n`nDate of Artifact Collection in UTC Time:" | Out-File -append "C:\Temp\DFIR_Output\firewall_settings.csv";
+(Get-Date).ToUniversalTime() | Out-File -append "C:\Temp\DFIR_Output\firewall_settings.csv"
 
 
 #==========================================
@@ -153,10 +150,9 @@ if ($Manufacturer -like "*Amazon EC2*") {
 
     #Collect list of all files and folders in the user's D drive
     Get-ChildItem D:\Users -Recurse | Out-File "C:\Temp\DFIR_Output\user_D_drive_files.txt";
-    "`n`nDate of Artifact Collection:" | Out-File -append "C:\Temp\DFIR_Output\user_D_drive_files.txt";
-    Get-Date | Out-File -append "C:\Temp\DFIR_Output\user_D_drive_files.txt"
-    Get-Timezone | Out-File -append "C:\Temp\DFIR_Output\user_D_drive_files.txt"
-
+    "`n`nDate of Artifact Collection in UTC Time:" | Out-File -append "C:\Temp\DFIR_Output\user_D_drive_files.txt";
+    (Get-Date).ToUniversalTime() | Out-File -append "C:\Temp\DFIR_Output\user_D_drive_files.txt"
+    
     $d_drive_users = (Get-ChildItem D:\Users).Name
 
     foreach ($d_drive_users in $d_drive_users) {
@@ -187,16 +183,14 @@ else {
 
     #Collect list of Wifi Profiles
     netsh wlan show profiles | Out-File "C:\Temp\DFIR_Output\wifi_profiles.txt";
-    "`n`nDate of Artifact Collection:" | Out-File -append "C:\Temp\DFIR_Output\wifi_profiles.txt";
-    Get-Date | Out-File -append "C:\Temp\DFIR_Output\wifi_profiles.txt"
-    Get-Timezone | Out-File -append "C:\Temp\DFIR_Output\wifi_profiles.txt"
-    
+    "`n`nDate of Artifact Collection in UTC Time:" | Out-File -append "C:\Temp\DFIR_Output\wifi_profiles.txt";
+    (Get-Date).ToUniversalTime() | Out-File -append "C:\Temp\DFIR_Output\wifi_profiles.txt"
+        
     #Collect list of all files and folders in the user's C drive
     Get-ChildItem C:\Users -Recurse | Out-File "C:\Temp\DFIR_Output\user_C_drive_files.txt";
-    "`n`nDate of Artifact Collection:" | Out-File -append "C:\Temp\DFIR_Output\user_C_drive_files.txt";
-    Get-Date | Out-File -append "C:\Temp\DFIR_Output\user_C_drive_files.txt"
-    Get-Timezone | Out-File -append "C:\Temp\DFIR_Output\user_C_drive_files.txt"
-    
+    "`n`nDate of Artifact Collection in UTC Time:" | Out-File -append "C:\Temp\DFIR_Output\user_C_drive_files.txt";
+    (Get-Date).ToUniversalTime() | Out-File -append "C:\Temp\DFIR_Output\user_C_drive_files.txt"
+        
     #Copy over the Powershell history log file and chrome history file for all user profiles on the endpoint
     $c_drive_users = (Get-ChildItem C:\Users).Name
     foreach ($c_drive_users in $c_drive_users) {
