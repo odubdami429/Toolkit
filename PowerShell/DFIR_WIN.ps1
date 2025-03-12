@@ -94,11 +94,6 @@ Get-NetTCPConnection |  select-object LocalAddress,LocalPort,RemoteAddress,Remot
 Get-Date | Out-File -append "C:\Temp\DFIR_Output\tcp_connections.txt"
 Get-Timezone | Out-File -append "C:\Temp\DFIR_Output\tcp_connections.txt"
 
-#Collect list of Wifi Profiles
-netsh wlan show profiles | Out-File "C:\Temp\DFIR_Output\wifi_profiles.txt";
-"`n`nDate of Artifact Collection:" | Out-File -append "C:\Temp\DFIR_Output\wifi_profiles.txt";
-Get-Date | Out-File -append "C:\Temp\DFIR_Output\wifi_profiles.txt"
-Get-Timezone | Out-File -append "C:\Temp\DFIR_Output\wifi_profiles.txt"
 
 #Collect list of all firewall rules on the system
 $fwRules = Get-NetFirewallRule | ForEach-Object {
@@ -189,6 +184,12 @@ if ($Manufacturer -like "*Amazon EC2*") {
 else {
 
     Write-Host "Windows Laptop/Desktop Detected"
+
+    #Collect list of Wifi Profiles
+    netsh wlan show profiles | Out-File "C:\Temp\DFIR_Output\wifi_profiles.txt";
+    "`n`nDate of Artifact Collection:" | Out-File -append "C:\Temp\DFIR_Output\wifi_profiles.txt";
+    Get-Date | Out-File -append "C:\Temp\DFIR_Output\wifi_profiles.txt"
+    Get-Timezone | Out-File -append "C:\Temp\DFIR_Output\wifi_profiles.txt"
     
     #Collect list of all files and folders in the user's C drive
     Get-ChildItem C:\Users -Recurse | Out-File "C:\Temp\DFIR_Output\user_C_drive_files.txt";
