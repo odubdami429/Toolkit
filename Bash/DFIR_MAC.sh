@@ -5,7 +5,7 @@
 #Once the the script is done the output files will be placed in //tmp/DFIR_Output
 #======================================================================================
 
-timeZone=America/New_York
+timeZone=Etc/UTC
 
 #Creates a folder that will contain all the artifacts
 mkdir //tmp/DFIR_Output
@@ -117,6 +117,11 @@ for user in "${listOfUsersArray[@]}"; do
     ls -l -R "//Users/"$user"/Downloads" > "//tmp/DFIR_Output/User_level_files/"$user"_files/"$user"_Downloads_files.txt"
     echo -e "\nDate of Artifact Collection:" >> "//tmp/DFIR_Output/User_level_files/"$user"_files/"$user"_Downloads_files.txt"
     TZ=$timeZone Date >> "//tmp/DFIR_Output/User_level_files/"$user"_files/"$user"_Downloads_files.txt"
+
+    #List all files in the User folder
+    ls -l -R "//Users/"$user"" > "//tmp/DFIR_Output/User_level_files/"$user"_files/"$user"_All_files.txt"
+    echo -e "\nDate of Artifact Collection:" >> "//tmp/DFIR_Output/User_level_files/"$user"_files/"$user"_All_files.txt"
+    TZ=$timeZone Date >> "//tmp/DFIR_Output/User_level_files/"$user"_files/"$user"_All_files.txt"
 
     #List of all User-level LaunchAgents
     ls -l "//Users/"$user"/Library/LaunchAgents" > "//tmp/DFIR_Output/User_level_files/"$user"_files/"$user"_LaunchAgents.txt"
