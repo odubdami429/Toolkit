@@ -188,7 +188,7 @@ if ($Manufacturer -like "*Amazon EC2*") {
 }
 else {
 
-    Write-Host "Windows Laptop Detected"
+    Write-Host "Windows Laptop/Desktop Detected"
     
     #Collect list of all files and folders in the user's C drive
     Get-ChildItem C:\Users -Recurse | Out-File "C:\Temp\DFIR_Output\user_C_drive_files.txt";
