@@ -13,8 +13,6 @@ New-Item -Path "C:\Temp" -Name "DFIR_Output" -ItemType "directory";
 
 #Collect User and System information
 systeminfo | Out-File "C:\Temp\DFIR_Output\system_info.txt";
-query user | Out-File -append "C:\Temp\DFIR_Output\system_info.txt";
-whoami /all | Out-File -append "C:\Temp\DFIR_Output\system_info.txt";
 "`n`nDate of Artifact Collection in UTC Time:" | Out-File -append "C:\Temp\DFIR_Output\system_info.txt";
 (Get-Date).ToUniversalTime() | Out-File -append "C:\Temp\DFIR_Output\system_info.txt";
 
