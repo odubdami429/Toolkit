@@ -158,10 +158,10 @@ if ($Manufacturer -like "*Amazon EC2*") {
         Get-ChildItem D:\Users\$d_drive_users -Recurse | Out-File "C:\Temp\DFIR_Output\User_level_files\${d_drive_users}_files\${d_drive_users}_All_files.txt";
 
          #Collect list of all files and folders in the user's documents folder
-        Get-ChildItem C:\Users\$d_drive_users\Documents -Recurse | Out-File "C:\Temp\DFIR_Output\User_level_files\${d_drive_users}_files\${d_drive_users}_Documents_files.txt";
+        Get-ChildItem D:\Users\$d_drive_users\Documents -Recurse | Out-File "C:\Temp\DFIR_Output\User_level_files\${d_drive_users}_files\${d_drive_users}_Documents_files.txt";
 
         #Collect list of all files and folders in the user's downloads folder
-        Get-ChildItem C:\Users\$d_drive_users\Downloads -Recurse | Out-File "C:\Temp\DFIR_Output\User_level_files\${d_drive_users}_files\${d_drive_users}_Downloads_files.txt";
+        Get-ChildItem D:\Users\$d_drive_users\Downloads -Recurse | Out-File "C:\Temp\DFIR_Output\User_level_files\${d_drive_users}_files\${d_drive_users}_Downloads_files.txt";
 
         #Grab the Chrome history files for D drive users
         Copy-Item "D:\Users\${d_drive_users}\AppData\Local\Google\Chrome\User Data\Default\History" "C:\Temp\DFIR_Output\User_level_files\${d_drive_users}_files\${d_drive_users}_Chrome_Default_History"
