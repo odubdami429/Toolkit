@@ -3,6 +3,11 @@
 #Once the the script is done the output files will be placed in C:\Temp\DFIR_Output
 #======================================================================================
 
+#Allows the script to continue even if there are errors
+$ErrorActionPreference = 'SilentlyContinue'
+
+
+
 #Creates a folder that will contain all the artifacts
 New-Item -Path "C:\Temp" -Name "DFIR_Output" -ItemType "directory";
  
