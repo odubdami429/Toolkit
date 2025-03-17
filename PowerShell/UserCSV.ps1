@@ -14,7 +14,7 @@ $City
 $Address
 $PostalCode
 
-if($Department -eq "BrightHR") {
+if($Department -eq "***") {
 
    $UserName = $FirstName + "." + $LastName + "@******.ca"
 }else {
