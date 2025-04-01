@@ -85,7 +85,7 @@
               <key>install_url</key>
               <string>https://addons.mozilla.org/firefox/downloads/file/4375788/glean-1.0.60.xpi</string>
             </dict>
-				<key>foxyproxy@eric.h.jung</key>
+			<key>foxyproxy@eric.h.jung</key>
 			 <dict>
               <key>installation_mode</key>
               <string>allowed</string>
