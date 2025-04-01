@@ -8,6 +8,14 @@
 	<true/>
 	<key>AutoLaunchProtocolsFromOrigins</key>
 	<array>
+		<dict>
+			<key>protocol</key>
+			<string>zoommtg</string>
+			<key>allowed_origins</key>
+			<array>
+				<string>https://greenhouse.zoom.us</string>
+			</array>
+		</dict>
 	</array>
 	<key>Certificates</key>
 	<dict>
@@ -76,6 +84,13 @@
               <string>force_installed</string>
               <key>install_url</key>
               <string>https://addons.mozilla.org/firefox/downloads/file/4375788/glean-1.0.60.xpi</string>
+            </dict>
+				<key>foxyproxy@eric.h.jung</key>
+			 <dict>
+              <key>installation_mode</key>
+              <string>allowed</string>
+              <key>install_url</key>
+              <string>https://addons.mozilla.org/firefox/downloads/file/4425860/foxyproxy_standard-8.10.xpi</string>
             </dict>
           </dict>
 	<key>SSLVersionMin</key>
