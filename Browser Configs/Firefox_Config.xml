@@ -44,7 +44,7 @@
 		<key>EmailTracking</key>
 		<true/>
 	</dict>
-	<key>Preferences</key> 
+	<key>Preferences</key>
 	<dict>
 		<key>network.http.http3.enable_0rtt</key>
 		<dict>
