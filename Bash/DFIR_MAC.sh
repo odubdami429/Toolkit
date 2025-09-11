@@ -135,12 +135,18 @@ for user in "${listOfUsersArray[@]}"; do
     echo -e "\nDate of Artifact Collection:" >> "//tmp/DFIR_Output/User_level_files/"$user"_files/"$user"_bash_history.txt"
     TZ=$timeZone Date >> "//tmp/DFIR_Output/User_level_files/"$user"_files/"$user"_bash_history.txt"
 
+
     #Copy over Chrome history files
     cp "//Users/"$user"/Library/Application Support/Google/Chrome/Default/History" "//tmp/DFIR_Output/User_level_files/"$user"_files/"$user"_default_chrome_history_file" 
-    cp "//Users/"$user"/Library/Application Support/Google/Chrome/Profile 1/History" "//tmp/DFIR_Output/User_level_files/"$user"_files/"$user"_profile_1_chrome_history_file" 
-    cp "//Users/"$user"/Library/Application Support/Google/Chrome/Profile 2/History" "//tmp/DFIR_Output/User_level_files/"$user"_files/"$user"_profile_2_chrome_history_file"
-    cp "//Users/"$user"/Library/Application Support/Google/Chrome/Profile 3/History" "//tmp/DFIR_Output/User_level_files/"$user"_files/"$user"_profile_3_chrome_history_file" 
-    cp "//Users/"$user"/Library/Application Support/Google/Chrome/Profile 4/History" "//tmp/DFIR_Output/User_level_files/"$user"_files/"$user"_profile_4_chrome_history_file"
+
+
+  
+    #profileNumber=0 Variable for number of profiles to looks for
+
+    for ((profileNumber=0; profileNumber<100; profileNumber++))
+    do
+    cp "//Users/"$user"/Library/Application Support/Google/Chrome/Profile "$profileNumber"/History" "//tmp/DFIR_Output/User_level_files/"$user"_files/"$user"_profile_"$profileNumber"_chrome_history_file" 
+    done
 
     #Copy over Safari history files
     cp "//Users/"$user"/Library/Safari/History.db" "//tmp/DFIR_Output/User_level_files/"$user"_files/"$user"_safari_history_file.db"
