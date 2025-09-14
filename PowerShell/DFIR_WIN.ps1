@@ -168,19 +168,15 @@ if ($Manufacturer -like "*Amazon EC2*") {
         #Collect list of all files and folders in the user's downloads folder
         Get-ChildItem D:\Users\$d_drive_users\Downloads -Recurse | Out-File "C:\Temp\DFIR_Output\User_level_files\${d_drive_users}_files\${d_drive_users}_Downloads_files.txt";
 
-        #Grab the Chrome history files for D drive users
+         #Grab the Chrome and Edge history files for D drive users
         Copy-Item "D:\Users\${d_drive_users}\AppData\Local\Google\Chrome\User Data\Default\History" "C:\Temp\DFIR_Output\User_level_files\${d_drive_users}_files\${d_drive_users}_Chrome_Default_History"
-        Copy-Item "D:\Users\${d_drive_users}\AppData\Local\Google\Chrome\User Data\Profile 1\History" "C:\Temp\DFIR_Output\User_level_files\${d_drive_users}_files\${d_drive_users}_Chrome_Profile_1_History"
-        Copy-Item "D:\Users\${d_drive_users}\AppData\Local\Google\Chrome\User Data\Profile 2\History" "C:\Temp\DFIR_Output\User_level_files\${d_drive_users}_files\${d_drive_users}_Chrome_Profile_2_History"
-        Copy-Item "D:\Users\${d_drive_users}\AppData\Local\Google\Chrome\User Data\Profile 3\History" "C:\Temp\DFIR_Output\User_level_files\${d_drive_users}_files\${d_drive_users}_Chrome_Profile_3_History"
-        Copy-Item "D:\Users\${d_drive_users}\AppData\Local\Google\Chrome\User Data\Profile 4\History" "C:\Temp\DFIR_Output\User_level_files\${d_drive_users}_files\${d_drive_users}_Chrome_Profile_4_History"
-
-        #Grab the Edge history files for D drive users
         Copy-Item "D:\Users\${d_drive_users}\AppData\Local\Microsoft\Edge\User Data\Default\History" "C:\Temp\DFIR_Output\User_level_files\${d_drive_users}_files\${d_drive_users}_Edge_Default_History"
-        Copy-Item "D:\Users\${d_drive_users}\AppData\Local\Microsoft\Edge\User Data\Profile 1\History" "C:\Temp\DFIR_Output\User_level_files\${d_drive_users}_files\${d_drive_users}_Edge_Profile_1_History"
-        Copy-Item "D:\Users\${d_drive_users}\AppData\Local\Microsoft\Edge\User Data\Profile 2\History" "C:\Temp\DFIR_Output\User_level_files\${d_drive_users}_files\${d_drive_users}_Edge_Profile_2_History"
-        Copy-Item "D:\Users\${d_drive_users}\AppData\Local\Microsoft\Edge\User Data\Profile 3\History" "C:\Temp\DFIR_Output\User_level_files\${d_drive_users}_files\${d_drive_users}_Edge_Profile_3_History"
-        Copy-Item "D:\Users\${d_drive_users}\AppData\Local\Microsoft\Edge\User Data\Profile 4\History" "C:\Temp\DFIR_Output\User_level_files\${d_drive_users}_files\${d_drive_users}_Edge_Profile 4 History"
+        for ($profileNumber = 1; $profileNumber -le 100; $profileNumber++) {
+
+            Copy-Item "D:\Users\${d_drive_users}\AppData\Local\Google\Chrome\User Data\Profile ${profileNumber}\History" "C:\Temp\DFIR_Output\User_level_files\${d_drive_users}_files\${d_drive_users}_Chrome_Profile_${profileNumber}_History"
+            Copy-Item "D:\Users\${d_drive_users}\AppData\Local\Microsoft\Edge\User Data\Profile ${profileNumber}\History" "C:\Temp\DFIR_Output\User_level_files\${d_drive_users}_files\${d_drive_users}_Edge_Profile_${profileNumber}_History"
+        }
+
 
         #Grab the PowerShell logs for the user
         Copy-Item "D:\Users\${d_drive_users}\AppData\Roaming\Microsoft\Windows\PowerShell\PSReadLine\ConsoleHost_history.txt" "C:\Temp\DFIR_Output\User_level_files\${d_drive_users}_files\${d_drive_users} powershell_logs.txt"
@@ -194,7 +190,7 @@ else {
 
     #Collect list of Wifi Profiles
     netsh wlan show profiles | Out-File "C:\Temp\DFIR_Output\wifi_profiles.txt";
-    "`n`nDate of Artifact Collection in UTC Time:" | Out-File -append "C:\Temp\DFIR_Output\wifi_profiles.txt";
+    "`n`nDate of Artifact Collection in UTC Time:" | Out-File -append "C:\Temp\DFIR_Output\wifi_profiles.txt"
     (Get-Date).ToUniversalTime() | Out-File -append "C:\Temp\DFIR_Output\wifi_profiles.txt"
         
     #Copy over the Powershell history log file and chrome history file for all user profiles on the endpoint
@@ -213,19 +209,14 @@ else {
         #Collect list of all files and folders in the user's downloads folder
         Get-ChildItem C:\Users\$c_drive_users\Downloads -Recurse | Out-File "C:\Temp\DFIR_Output\User_level_files\${c_drive_users}_files\${c_drive_users}_Downloads_files.txt";
 
-        #Grab the Chrome history files for C drive users
+         #Grab the Chrome and Edge history files for C drive users
         Copy-Item "C:\Users\${c_drive_users}\AppData\Local\Google\Chrome\User Data\Default\History" "C:\Temp\DFIR_Output\User_level_files\${c_drive_users}_files\${c_drive_users}_Chrome_Default_History"
-        Copy-Item "C:\Users\${c_drive_users}\AppData\Local\Google\Chrome\User Data\Profile 1\History" "C:\Temp\DFIR_Output\User_level_files\${c_drive_users}_files\${c_drive_users}_Chrome_Profile_1_History"
-        Copy-Item "C:\Users\${c_drive_users}\AppData\Local\Google\Chrome\User Data\Profile 2\History" "C:\Temp\DFIR_Output\User_level_files\${c_drive_users}_files\${c_drive_users}_Chrome_Profile_2_History"
-        Copy-Item "C:\Users\${c_drive_users}\AppData\Local\Google\Chrome\User Data\Profile 3\History" "C:\Temp\DFIR_Output\User_level_files\${c_drive_users}_files\${c_drive_users}_Chrome_Profile_3_History"
-        Copy-Item "C:\Users\${c_drive_users}\AppData\Local\Google\Chrome\User Data\Profile 4\History" "C:\Temp\DFIR_Output\User_level_files\${c_drive_users}_files\${c_drive_users}_Chrome_Profile 4 History"
-
-        #Grab the Edge history files for C drive users
         Copy-Item "C:\Users\${c_drive_users}\AppData\Local\Microsoft\Edge\User Data\Default\History" "C:\Temp\DFIR_Output\User_level_files\${c_drive_users}_files\${c_drive_users}_Edge_Default_History"
-        Copy-Item "C:\Users\${c_drive_users}\AppData\Local\Microsoft\Edge\User Data\Profile 1\History" "C:\Temp\DFIR_Output\User_level_files\${c_drive_users}_files\${c_drive_users}_Edge_Profile_1_History"
-        Copy-Item "C:\Users\${c_drive_users}\AppData\Local\Microsoft\Edge\User Data\Profile 2\History" "C:\Temp\DFIR_Output\User_level_files\${c_drive_users}_files\${c_drive_users}_Edge_Profile_2_History"
-        Copy-Item "C:\Users\${c_drive_users}\AppData\Local\Microsoft\Edge\User Data\Profile 3\History" "C:\Temp\DFIR_Output\User_level_files\${c_drive_users}_files\${c_drive_users}_Edge_Profile_3_History"
-        Copy-Item "C:\Users\${c_drive_users}\AppData\Local\Microsoft\Edge\User Data\Profile 4\History" "C:\Temp\DFIR_Output\User_level_files\${c_drive_users}_files\${c_drive_users}_Edge_Profile 4 History"
+        for ($profileNumber = 1; $profileNumber -le 100; $profileNumber++) {
+
+            Copy-Item "C:\Users\${c_drive_users}\AppData\Local\Google\Chrome\User Data\Profile ${profileNumber}\History" "C:\Temp\DFIR_Output\User_level_files\${c_drive_users}_files\${c_drive_users}_Chrome_Profile_${profileNumber}_History"
+            Copy-Item "C:\Users\${c_drive_users}\AppData\Local\Microsoft\Edge\User Data\Profile ${profileNumber}\History" "C:\Temp\DFIR_Output\User_level_files\${c_drive_users}_files\${c_drive_users}_Edge_Profile_${profileNumber}_History"
+        }
 
 
         #Grab the PowerShell logs for the user
