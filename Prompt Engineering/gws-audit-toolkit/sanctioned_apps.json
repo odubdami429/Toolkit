@@ -1,0 +1,7 @@
+{
+  "_comment": "OAuth apps confirmed safe for companyDomain users. Used by score_indicators.py to flag only unfamiliar grants. Match priority: client_id (exact), then name (case-insensitive). Add new entries after confirming an app is approved.",
+  "version": 1,
+  "updated": "2026-05-02",
+  "apps": [
+  ]
+}

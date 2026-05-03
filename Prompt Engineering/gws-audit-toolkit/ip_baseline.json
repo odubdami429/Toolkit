@@ -1,0 +1,13 @@
+{
+  "_comment": "Per-user expected geography/ASN. Used by score_indicators.py to flag logins from countries/orgs outside the user's pattern. Update as people relocate, travel for extended periods, or shift their network setup.",
+  "version": 1,
+  "updated": "2026-05-02",
+  "users": {
+
+  },
+  "_default": {
+    "expected_countries": ["US", "CA", "India"],
+    "expected_orgs_substring": [],
+    "notes": "Fallback when a user is not in the baseline. Most companyDomain staff are in US or CA; non-US/CA logins for an unbaselined user should still be reviewed."
+  }
+}
