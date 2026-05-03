@@ -13,7 +13,7 @@
 			<string>zoommtg</string>
 			<key>allowed_origins</key>
 			<array>
-				<string>https://greenhouse.zoom.us</string>
+				<string>https://companyName.zoom.us</string>
 			</array>
 		</dict>
 	</array>

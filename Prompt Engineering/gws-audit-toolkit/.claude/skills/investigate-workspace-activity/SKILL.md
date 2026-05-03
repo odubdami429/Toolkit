@@ -1,11 +1,11 @@
 ---
 name: investigate-workspace-activity
-description: Investigate a Google Workspace audit-log scenario for a single Greenhouse employee — correlate events across drive/gmail/login/token/IP CSVs and produce a structured investigation report suitable for Slack, a Google Doc, or a ticket attachment. Use whenever the user describes an investigation scenario like "suspected data exfiltration by X", "unusual login activity for X", "X's account may be compromised", "look into Y for X", or any open-ended ask to "investigate", "triage", "review the logs for", or "build a case summary on" a specific @companyDomain user. Also trigger when an analyst pastes an alert or IOC and asks what to make of it for a given user, or when they reference an earlier pull and now want a verdict rather than raw data.
+description: Investigate a Google Workspace audit-log scenario for a single companyName employee — correlate events across drive/gmail/login/token/IP CSVs and produce a structured investigation report suitable for Slack, a Google Doc, or a ticket attachment. Use whenever the user describes an investigation scenario like "suspected data exfiltration by X", "unusual login activity for X", "X's account may be compromised", "look into Y for X", or any open-ended ask to "investigate", "triage", "review the logs for", or "build a case summary on" a specific @companyDomain user. Also trigger when an analyst pastes an alert or IOC and asks what to make of it for a given user, or when they reference an earlier pull and now want a verdict rather than raw data.
 ---
 
 # Investigate Workspace Activity
 
-Takes a scenario description + a target Greenhouse employee, decides which Workspace audit log sources are relevant, pulls/reads the CSVs, correlates events across them, and produces a structured investigation report.
+Takes a scenario description + a target companyName employee, decides which Workspace audit log sources are relevant, pulls/reads the CSVs, correlates events across them, and produces a structured investigation report.
 
 ## When to use this vs. raw queries
 

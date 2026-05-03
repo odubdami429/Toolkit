@@ -170,8 +170,8 @@ def score_drive(rows, subject):
         findings.append({
             "severity": "MED",
             "category": "Drive",
-            "indicator": "Drive share to non-greenhouse external recipient",
-            "detail": f"{len(other_external)} share(s) to non-greenhouse domains",
+            "indicator": "Drive share to non-companyName external recipient",
+            "detail": f"{len(other_external)} share(s) to non-companyName domains",
             "evidence_count": len(other_external),
             "samples": [{"time": r["time"], "doc_title": r.get("doc_title", "")[:80],
                          "target": r["target_user"]} for r in other_external[:5]],
@@ -517,7 +517,7 @@ def main():
     for cat, name in [
         ("Drive", "Mass download/export/copy burst"),
         ("Drive", "Drive share to free email provider"),
-        ("Drive", "Drive share to non-greenhouse external recipient"),
+        ("Drive", "Drive share to non-companyName external recipient"),
         ("Drive", "Ownership transfer to external account"),
         ("Gmail", "Auto-forwarding rule added or modified"),
         ("Gmail", "Outbound mail to free email providers"),

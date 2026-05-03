@@ -1,6 +1,6 @@
 ---
 name: pull-workspace-logs
-description: Run the local Google Workspace audit log puller scripts (pull_drive_logs.py, pull_gmail_logs.py, pull_audit_logs.py, user_ips.py) for a given user email and report what was gathered. Use whenever the user wants to pull, gather, fetch, dump, or audit a Greenhouse employee's Google Workspace logs — Drive, Gmail, login, OAuth tokens, IPs — for security investigation, exfiltration triage, or routine review. Trigger on phrases like "pull workspace logs for X", "audit X's gws logs", "gather drive/gmail/login logs for X@companyDomain", "what IPs did X use", or any request that names an @companyDomain email together with Google Workspace audit data. Also trigger when the user references a previous run and asks to refresh or re-pull.
+description: Run the local Google Workspace audit log puller scripts (pull_drive_logs.py, pull_gmail_logs.py, pull_audit_logs.py, user_ips.py) for a given user email and report what was gathered. Use whenever the user wants to pull, gather, fetch, dump, or audit a companyName employee's Google Workspace logs — Drive, Gmail, login, OAuth tokens, IPs — for security investigation, exfiltration triage, or routine review. Trigger on phrases like "pull workspace logs for X", "audit X's gws logs", "gather drive/gmail/login logs for X@companyDomain", "what IPs did X use", or any request that names an @companyDomain email together with Google Workspace audit data. Also trigger when the user references a previous run and asks to refresh or re-pull.
 ---
 
 # Pull Workspace Logs
