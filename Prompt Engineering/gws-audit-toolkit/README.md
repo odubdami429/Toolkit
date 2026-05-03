@@ -95,7 +95,7 @@ Then **edit `~/.claude/skills/pull-workspace-logs/SKILL.md`** and replace every 
   ```json
   "your.name@companyDomain": {
     "expected_countries": ["CA"],
-    "expected_orgs_substring": ["Netskope"],
+    "expected_orgs_substring": ["..."],
     "primary_city": "Toronto",
     "notes": "..."
   }
