@@ -157,7 +157,7 @@ Once installed, just ask Claude in any conversation.
 
 > what IPs did dami use this week
 
-> audit alice.smith for the last 7 days
+> audit Jane.smith for the last 7 days
 
 **Investigating a scenario** (`investigate-workspace-activity`) — produces a structured markdown report in the user's log folder:
 
@@ -165,7 +165,7 @@ Once installed, just ask Claude in any conversation.
 
 > unusual login activity for dami.odubanjo this week
 
-> alice.smith's account may be compromised — build me a case summary
+> Jane.smith's account may be compromised — build me a case summary
 
 The investigate skill auto-pulls fresh logs if needed, correlates events across sources, scores risk indicators, and writes a report suitable for Slack, a Google Doc, or a ticket attachment.
 

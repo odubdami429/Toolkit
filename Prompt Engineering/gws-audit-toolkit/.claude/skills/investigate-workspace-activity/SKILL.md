@@ -220,7 +220,7 @@ Don't paste the full report into chat — the point is the files.
 **"unusual login activity for dami.odubanjo this week"**
 → 7d window. Load login + ips. Look for new countries, `suspicious_login` events, impossible travel. Don't load Drive/Gmail unless something jumps out.
 
-**"alice.smith's account may be compromised"**
+**"Jane.smith's account may be compromised"**
 → 30d. Load login, token, user_accounts, gmail. Top signals: forwarding rules added, new OAuth grants (especially mail/drive scopes), 2SV changes, `suspicious_login` events.
 
 **"can you build me a case summary for the dami.odubanjo investigation we did earlier"**
