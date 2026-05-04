@@ -101,7 +101,7 @@ Then **edit `~/.claude/skills/pull-workspace-logs/SKILL.md`** and replace every 
   }
   ```
   Without an entry the scorer falls back to a `[US, CA]` default — fine for ad-hoc work, less sharp for repeated runs on the same person.
-- **`sanctioned_apps.json`** — review the included list (BetterCloud, Code42, Glean, Chrome, gws CLI, phishing reporter, G2, Zoom for G Suite). Add any other OAuth apps your org has vetted. Anything not in this list gets flagged "unsanctioned" by `score_indicators.py`.
+- **`sanctioned_apps.json`** — review the included list (). Add any other OAuth apps your org has vetted. Anything not in this list gets flagged "unsanctioned" by `score_indicators.py`.
 
 ### 8. Verify it works
 
@@ -172,7 +172,7 @@ The investigate skill auto-pulls fresh logs if needed, correlates events across 
 ## Caveats
 
 - **Gmail caps at 30 days per call.** Longer windows need chunking (the scripts warn but don't auto-chunk).
-- **OAuth-impersonated traffic dominates raw event counts.** Glean, Code42, etc. show up as the user. Filter `actor_impersonation == false` for human signals.
+- **OAuth-impersonated traffic dominates raw event counts.** Glean, etc. show up as the user. Filter `actor_impersonation == false` for human signals.
 - **Gmail recipients live in `flattened_destinations`** (format `<source>::<address>`), not `destination`.
 - **Token CSVs are huge** — often 50k+ rows over 30 days. Filter to `event_name=authorize` and dedupe by `client_id` when scanning OAuth grants.
 - **Empty `user_accounts` / `admin` CSVs are normal** for end users (no settings or admin changes happened).

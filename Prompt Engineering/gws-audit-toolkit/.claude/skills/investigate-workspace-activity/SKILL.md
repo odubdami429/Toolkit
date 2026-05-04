@@ -35,8 +35,8 @@ The toolkit ships with a few scripts that do the heavy lifting — prefer them o
 
 Two reference files the scripts read:
 
-- `sanctioned_apps.json` — known-good OAuth `client_id`s (BetterCloud, Code42, Glean, Chrome, gws CLI, phishing reporter, G2, Zoom for G Suite). Anything not in here gets flagged as "unsanctioned" — not necessarily malicious, but worth a look. Update it as new apps are vetted.
-- `ip_baseline.json` — per-user expected countries/ASNs (e.g., dami → CA/Distributel, owen → CA/TELUS, nick → US/Netskope). The login scorer uses this to flag unfamiliar geos. Add users / update as people relocate.
+- `sanctioned_apps.json` — known-good OAuth `client_id`s (). Anything not in here gets flagged as "unsanctioned" — not necessarily malicious, but worth a look. Update it as new apps are vetted.
+- `ip_baseline.json` — per-user expected countries/ASNs (). The login scorer uses this to flag unfamiliar geos. Add users / update as people relocate.
 
 If a referenced script doesn't exist in the working directory, fall back to reading the CSVs directly using the catalog in §5 — but mention the gap so the toolkit can be patched.
 
@@ -82,7 +82,7 @@ Read the resulting `_indicators_Nd.json` — that's your Risk-Indicators table a
 
 If the scripts don't surface what you need (e.g., the scenario calls for keyword searches on email subjects, or a specific document title), drop to the CSVs:
 
-- Filter `actor_impersonation == false` for human-driven events. Glean, Code42, BetterCloud account for the bulk of raw events as the user — they're noise unless they're directly relevant (e.g., a *new* OAuth grant *to* one of those apps within the window).
+- Filter `actor_impersonation == false` for human-driven events. Glean for the bulk of raw events as the user — they're noise unless they're directly relevant (e.g., a *new* OAuth grant *to* one of those apps within the window).
 - Restrict to the investigation window.
 - For drive specifically, filter `actor_email == <subject>` to drop stuff *other* people did to the user's docs.
 - For gmail recipients, look at `flattened_destinations` (format `<source>::<address>`), not `destination` (usually empty). The Reports API gmail data is mostly inbound — see `pull_outbound_gmail.py` for the outbound heuristic.
@@ -210,12 +210,12 @@ Don't paste the full report into chat — the point is the files.
 - **Quote, don't paraphrase, when citing logs.** Include doc titles, recipient addresses, client_ids, IPs, timestamps verbatim. The report needs to stand up in a ticket.
 - **Verdict honesty.** If the data is inconclusive, the executive summary must say so. Don't manufacture concern to justify the work; don't downplay genuine risk to be tidy.
 - **Privacy.** The report contains real email subjects, recipients, and document titles. Flag this before the analyst pastes it anywhere external.
-- **Sanctioned-app list isn't gospel.** It reflects what's been seen in past runs (BetterCloud, Code42, Glean, Google Chrome, gws CLI, phishing reporter). New legitimate apps roll out — flag them as "unfamiliar" rather than "malicious", and let the analyst confirm.
+- **Sanctioned-app list isn't gospel.** It reflects what's been seen in past runs (Glean, Google Chrome, gws CLI). New legitimate apps roll out — flag them as "unfamiliar" rather than "malicious", and let the analyst confirm.
 
 ## Examples
 
 **"investigate suspected data exfiltration by John.Doe@companyDomain"**
-→ 30d window. Load drive, gmail, token; cross-check ips. Focus on bulk downloads, external sends to free providers, and new OAuth grants with broad scopes. Output report to `logs/nick_huanca_G_Logs/investigation_data_exfil_<date>.md`.
+→ 30d window. Load drive, gmail, token; cross-check ips. Focus on bulk downloads, external sends to free providers, and new OAuth grants with broad scopes. Output report to `logs/John_huanca_G_Logs/investigation_data_exfil_<date>.md`.
 
 **"unusual login activity for dami.odubanjo this week"**
 → 7d window. Load login + ips. Look for new countries, `suspicious_login` events, impossible travel. Don't load Drive/Gmail unless something jumps out.
@@ -226,5 +226,5 @@ Don't paste the full report into chat — the point is the files.
 **"can you build me a case summary for the dami.odubanjo investigation we did earlier"**
 → Logs already exist. Skip pull, read existing CSVs, write the report.
 
-**"there's a Doppel alert for nick — what's his recent activity look like?"**
+**"there's a Doppel alert for John — what's his recent activity look like?"**
 → Treat as account-compromise scenario at 14d. Pull the alert details from the analyst's message into the **Scenario** field of the report verbatim.

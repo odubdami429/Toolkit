@@ -80,7 +80,7 @@ Do not list all possible next steps.
 - **Avoid re-pulling.** If the user asks for analysis on data already in `logs/<first>_<last>_G_Logs/`, read those CSVs instead of re-running. The manifest JSON has timestamps so you can tell freshness.
 - **Token CSVs are huge** (often 50k+ rows over 30 days). When scanning for new OAuth grants, filter to `event_name=authorize` and dedupe by `client_id` rather than reading the whole file.
 - **Empty CSVs are normal.** `user_accounts` and `admin` are usually empty for end users — that means no settings/admin changes, not a failed pull.
-- **OAuth-impersonated traffic dominates.** When looking for human-driven exfil signals, filter `actor_impersonation == false` (column in every CSV). Glean, Code42, etc. account for the bulk of raw events.
+- **OAuth-impersonated traffic dominates.** When looking for human-driven exfil signals, filter `actor_impersonation == false` (column in every CSV). Glean, etc. account for the bulk of raw events.
 - **Gmail recipient field.** Real recipients live in `flattened_destinations` (format `<source>::<address>`). The `destination` column is usually empty.
 - **Privacy.** These logs include real subjects, recipients, and document titles. Don't paste them into third-party services without warning the user.
 
@@ -95,11 +95,11 @@ Do not list all possible next steps.
 **"just get me dami's drive logs"**
 → Only `pull_drive_logs.py`. Don't run the others.
 
-**"what new OAuth apps has nick authorized this month?"**
+**"what new OAuth apps has John authorized this month?"**
 → Only `pull_oauth_logs.py --days 30`, then filter the resulting CSV to `event_name=authorize` and dedupe by `client_id`.
 
-**"what IPs did nick use this week"**
+**"what IPs did John use this week"**
 → Only `user_ips.py --days 7`, then read the resulting CSV and surface countries + the direct-actor IP.
 
-**"refresh nick's logs"**
+**"refresh John's logs"**
 → Re-run all four scripts on the same user. Mention if the output folder already existed (files will be overwritten).
