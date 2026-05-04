@@ -214,7 +214,7 @@ Don't paste the full report into chat — the point is the files.
 
 ## Examples
 
-**"investigate suspected data exfiltration by nick.huanca@companyDomain"**
+**"investigate suspected data exfiltration by John.Doe@companyDomain"**
 → 30d window. Load drive, gmail, token; cross-check ips. Focus on bulk downloads, external sends to free providers, and new OAuth grants with broad scopes. Output report to `logs/nick_huanca_G_Logs/investigation_data_exfil_<date>.md`.
 
 **"unusual login activity for dami.odubanjo this week"**
