@@ -153,7 +153,7 @@ Once installed, just ask Claude in any conversation.
 
 **Pulling logs** (`pull-workspace-logs`):
 
-> pull workspace logs for nick.huanca@companyDomain
+> pull workspace logs for John.Doe@companyDomain
 
 > what IPs did dami use this week
 
@@ -161,7 +161,7 @@ Once installed, just ask Claude in any conversation.
 
 **Investigating a scenario** (`investigate-workspace-activity`) — produces a structured markdown report in the user's log folder:
 
-> investigate suspected data exfiltration by nick.huanca@companyDomain
+> investigate suspected data exfiltration by John.Doe@companyDomain
 
 > unusual login activity for dami.odubanjo this week
 
