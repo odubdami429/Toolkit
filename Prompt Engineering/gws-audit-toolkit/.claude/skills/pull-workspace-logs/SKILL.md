@@ -86,7 +86,7 @@ Do not list all possible next steps.
 
 ## Examples
 
-**"pull workspace logs for nick.huanca@companyDomain"**
+**"pull workspace logs for John.Doe@companyDomain"**
 → Run all four scripts at `--days 30`, then summarize counts + the IP fingerprint.
 
 **"audit dami.odubanjo for the last 7 days"**
