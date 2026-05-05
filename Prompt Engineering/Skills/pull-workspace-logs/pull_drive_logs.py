@@ -164,8 +164,8 @@ def main():
     ap.add_argument("--days", type=int, default=30)
     ap.add_argument("--apps", default=",".join(DEFAULT_APPS),
                     help=f"Comma-separated apps (default: {','.join(DEFAULT_APPS)})")
-    ap.add_argument("--out", default="logs",
-                    help="Output directory (default: logs)")
+    ap.add_argument("--out", default=os.path.expanduser("~/Documents/WorkspaceLogs"),
+                    help="Output directory (default: ~/Documents/WorkspaceLogs)")
     args = ap.parse_args()
 
     out_dir = os.path.join(args.out, user_subfolder(args.user))

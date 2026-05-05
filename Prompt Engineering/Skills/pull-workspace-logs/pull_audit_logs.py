@@ -155,7 +155,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("user")
     ap.add_argument("--days", type=int, default=7)
-    ap.add_argument("--out", default="./audit_csv")
+    ap.add_argument("--out", default=os.path.expanduser("~/Documents/WorkspaceLogs"))
     ap.add_argument("--apps", default="drive,login,token,user_accounts,gmail,admin",
                     help="Comma-separated list of applicationName values")
     args = ap.parse_args()

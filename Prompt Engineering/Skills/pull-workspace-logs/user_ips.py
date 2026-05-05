@@ -116,14 +116,14 @@ def main():
     ap.add_argument("user")
     ap.add_argument("--days", type=int, default=30)
     ap.add_argument("--apps", default=",".join(DEFAULT_APPS))
-    ap.add_argument("--out", default="logs",
-                    help="Parent output directory (default: logs); "
+    ap.add_argument("--out", default=os.path.expanduser("~/Documents/WorkspaceLogs"),
+                    help="Parent output directory (default: ~/Documents/WorkspaceLogs); "
                          "a firstName_lastName_G_Logs subfolder is created inside")
     ap.add_argument("--csv", help="Optional override for the output CSV path")
     ap.add_argument("--no-enrich", action="store_true",
                     help="Skip ipinfo.io enrichment")
-    ap.add_argument("--cache", default="logs/.ipinfo_cache.json",
-                    help="Path to persistent IP enrichment cache (default: logs/.ipinfo_cache.json)")
+    ap.add_argument("--cache", default=os.path.expanduser("~/Documents/WorkspaceLogs/.ipinfo_cache.json"),
+                    help="Path to persistent IP enrichment cache (default: ~/Documents/WorkspaceLogs/.ipinfo_cache.json)")
     args = ap.parse_args()
 
     out_dir = os.path.join(args.out, user_subfolder(args.user))

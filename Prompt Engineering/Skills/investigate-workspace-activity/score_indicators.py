@@ -472,7 +472,7 @@ def score_ips(ips_rows, baseline_entry):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("user")
-    ap.add_argument("--logs-dir", default="logs")
+    ap.add_argument("--logs-dir", default=os.path.expanduser("~/Documents/WorkspaceLogs"))
     ap.add_argument("--days", type=int, default=30)
     ap.add_argument("--sanctioned", help="Path to sanctioned_apps.json")
     ap.add_argument("--baseline", help="Path to ip_baseline.json")

@@ -77,7 +77,7 @@ def collect_gmail_corecipients(rows, subject):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("user")
-    ap.add_argument("--logs-dir", default="logs",
+    ap.add_argument("--logs-dir", default=os.path.expanduser("~/Documents/WorkspaceLogs"),
                     help="Parent directory containing <first>_<last>_G_Logs/")
     ap.add_argument("--days", type=int, default=30,
                     help="Window the CSVs were pulled at (used to find filenames)")
