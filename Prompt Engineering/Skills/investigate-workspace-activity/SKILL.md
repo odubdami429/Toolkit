@@ -31,7 +31,7 @@ The toolkit ships with a few scripts that do the heavy lifting — prefer them o
 | `.claude/skills/investigate-workspace-activity/build_timeline.py <user> --days N --format md` | Merges drive/gmail/login/token CSVs into a chronological "material events" file. Filters Drive views and inbound gmail noise; keeps shares, downloads, OAuth grants, login events, forwarding rule changes. | Use to populate the Timeline section. Default output is markdown table — paste-ready. |
 | `.claude/skills/investigate-workspace-activity/top_collaborators.py <user> --days N` | Ranks internal/external peers by Drive shares + Gmail co-recipients. | Use when deciding who to pivot to, or to spot an external recipient that's unusual for the subject. |
 | `.claude/skills/investigate-workspace-activity/pull_outbound_gmail.py <user> --days N` | Filters the existing gmail CSV down to events that *look* outbound (heuristic — Reports API gmail is mostly inbound). Emits per-domain summary. | Use when the scenario is exfil/insider-threat. If it returns 0 rows, document the limitation in the report's Caveats. |
-| `.claude/skills/investigate-workspace-activity/md_to_pdf.py <report.md>` | Stdlib markdown → HTML → Chrome-headless PDF. | **Always run after writing the .md** — the analyst's standing preference is both .md AND .pdf as the final deliverable for every investigation. |
+| `.claude/skills/investigate-workspace-activity/md_to_xlsx.py <report.md>` | Markdown → formatted Excel workbook (requires `openpyxl`). | **Always run after writing the .md** — the analyst's standing preference is both .md AND .xlsx as the final deliverable for every investigation. |
 
 Two reference files the scripts read (both live alongside the scripts in `.claude/skills/investigate-workspace-activity/`):
 
@@ -137,7 +137,7 @@ Save to `~/Documents/WorkspaceLogs/<first>_<last>_G_Logs/<first>_<last>_investig
 
 Pull the Risk-Indicators table directly from `<user>_indicators_Nd.json`. Pull the Timeline rows from the top of `<user>_timeline_Nd.md` (filter to material events around your findings — don't paste all 3000+).
 
-**Then immediately render the PDF:** `python3 .claude/skills/investigate-workspace-activity/md_to_pdf.py <path>.md`. The analyst's standing preference is both formats — the .md is editable / pasteable, the .pdf is the ticket / Doc / Slack-share artifact. Don't wait to be asked.
+**Then immediately render the Excel workbook:** `python3 .claude/skills/investigate-workspace-activity/md_to_xlsx.py <path>.md`. The analyst's standing preference is both formats — the .md is editable / pasteable, the .xlsx is the ticket / Doc / Slack-share artifact. Don't wait to be asked.
 
 Use this template:
 
@@ -198,7 +198,7 @@ Common ones: revoke OAuth grant for client_id X, kill active sessions, force pas
 
 In chat, return:
 
-- The paths to **both** the `.md` and `.pdf` files.
+- The paths to **both** the `.md` and `.xlsx` files.
 - The 1-line executive summary.
 - The single highest-severity finding.
 - **One** follow-up offer (e.g. "Want me to expand to 90 days?", "Want me to format this as a Slack-ready post?", "Want to pivot to <related user> — `top_collaborators.py` ranked these peers...").
