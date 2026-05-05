@@ -5,7 +5,7 @@ description: Run the local Google Workspace audit log puller scripts (pull_drive
 
 # Pull Workspace Logs
 
-Orchestrates four local Python scripts that pull Google Workspace audit logs for a single user via the `gws` CLI, write CSVs into `logs/<first>_<last>_G_Logs/`, and emit a manifest JSON describing what was produced.
+Orchestrates four local Python scripts that pull Google Workspace audit logs for a single user via the `gws` CLI, write CSVs into `~/Documents/WorkspaceLogs/<first>_<last>_G_Logs/`, and emit a manifest JSON describing what was produced.
 
 ## Why this exists
 
@@ -13,7 +13,7 @@ Investigators routinely need a user's full Workspace audit picture (Drive activi
 
 ## Scripts
 
-All scripts live at `.claude/skills/pull-workspace-logs/` (relative to the toolkit root). Each writes to `logs/<first>_<last>_G_Logs/` (auto-derived from the email's local part) and produces a manifest JSON.
+All scripts live at `.claude/skills/pull-workspace-logs/` (relative to the toolkit root). Each writes to `~/Documents/WorkspaceLogs/<first>_<last>_G_Logs/` (auto-derived from the email's local part) and produces a manifest JSON.
 
 | Script | What it pulls |
 |---|---|
@@ -23,7 +23,7 @@ All scripts live at `.claude/skills/pull-workspace-logs/` (relative to the toolk
 | `.claude/skills/pull-workspace-logs/pull_audit_logs.py <email> --apps <list>` | any Workspace app (generic) |
 | `.claude/skills/pull-workspace-logs/user_ips.py <email>` | distinct IPs with country/city/org enrichment |
 
-Common flags: `--days N` (default 30), `--out DIR` (default `logs`).
+Common flags: `--days N` (default 30), `--out DIR` (default `~/Documents/WorkspaceLogs`).
 
 ## Workflow
 
@@ -53,7 +53,7 @@ If a script reports a `gws` auth error, stop and point the user at `gws auth sta
 After all runs, summarize in this format:
 
 ```
-logs/<first>_<last>_G_Logs/
+~/Documents/WorkspaceLogs/<first>_<last>_G_Logs/
   drive:        <N>     rows
   login:        <N>     rows
   token:        <N>     rows
@@ -76,7 +76,7 @@ Do not list all possible next steps.
 
 ## Behaviors and caveats
 
-- **Avoid re-pulling.** If the user asks for analysis on data already in `logs/<first>_<last>_G_Logs/`, read those CSVs instead of re-running. The manifest JSON has timestamps so you can tell freshness.
+- **Avoid re-pulling.** If the user asks for analysis on data already in `~/Documents/WorkspaceLogs/<first>_<last>_G_Logs/`, read those CSVs instead of re-running. The manifest JSON has timestamps so you can tell freshness.
 - **Token CSVs are huge** (often 50k+ rows over 30 days). When scanning for new OAuth grants, filter to `event_name=authorize` and dedupe by `client_id` rather than reading the whole file.
 - **Empty CSVs are normal.** `user_accounts` and `admin` are usually empty for end users — that means no settings/admin changes, not a failed pull.
 - **OAuth-impersonated traffic dominates.** When looking for human-driven exfil signals, filter `actor_impersonation == false` (column in every CSV). Glean, Code42, etc. account for the bulk of raw events.

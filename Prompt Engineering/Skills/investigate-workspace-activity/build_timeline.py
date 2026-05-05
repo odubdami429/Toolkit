@@ -117,7 +117,7 @@ def material_gmail(r):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("user")
-    ap.add_argument("--logs-dir", default="logs")
+    ap.add_argument("--logs-dir", default=os.path.expanduser("~/Documents/WorkspaceLogs"))
     ap.add_argument("--days", type=int, default=30)
     ap.add_argument("--start", help="ISO start (YYYY-MM-DD or full timestamp)")
     ap.add_argument("--end",   help="ISO end")

@@ -58,7 +58,7 @@ If the scenario doesn't fit, infer from keywords: "download/share/forward" → d
 
 ### 2. Make sure logs exist
 
-Check for `logs/<first>_<last>_G_Logs/` and inspect the most recent manifest JSONs. If the data is missing, older than the requested window, or shorter than needed, invoke the **pull-workspace-logs** skill first. Don't re-pull when fresh data already exists — the manifest's `start_time`/`end_time` tell you the coverage.
+Check for `~/Documents/WorkspaceLogs/<first>_<last>_G_Logs/` and inspect the most recent manifest JSONs. If the data is missing, older than the requested window, or shorter than needed, invoke the **pull-workspace-logs** skill first. Don't re-pull when fresh data already exists — the manifest's `start_time`/`end_time` tell you the coverage.
 
 ### 3. Run the scoring + timeline scripts
 
@@ -68,6 +68,8 @@ For most scenarios, this is two commands:
 python3 .claude/skills/investigate-workspace-activity/score_indicators.py <subject> --days <N>
 python3 .claude/skills/investigate-workspace-activity/build_timeline.py <subject> --days <N> --format md
 ```
+
+Logs are read from `~/Documents/WorkspaceLogs/<first>_<last>_G_Logs/` by default; pass `--logs-dir <path>` to override.
 
 For exfil/insider scenarios, also:
 
@@ -131,7 +133,7 @@ The timeline script gives you the chronological view. For each high/med indicato
 
 ### 7. Write the report (and render to PDF)
 
-Save to `logs/<first>_<last>_G_Logs/<first>_<last>_investigation_<scenario_slug>_<YYYY-MM-DD>.md`. Note the user's name **prefixes the filename itself**, not just the folder — the analyst's standing preference is filenames like `John_Doe_investigation_login_anomaly_2026-05-02.md` so reports stay identifiable when pulled out of their folders (attached to tickets, posted to Slack, dropped into a Drive folder of mixed reports). Pick a short kebab-case slug from the scenario (e.g. `data_exfil`, `account_takeover`, `login_anomaly`).
+Save to `~/Documents/WorkspaceLogs/<first>_<last>_G_Logs/<first>_<last>_investigation_<scenario_slug>_<YYYY-MM-DD>.md`. Note the user's name **prefixes the filename itself**, not just the folder — the analyst's standing preference is filenames like `John_Doe_investigation_login_anomaly_2026-05-02.md` so reports stay identifiable when pulled out of their folders (attached to tickets, posted to Slack, dropped into a Drive folder of mixed reports). Pick a short kebab-case slug from the scenario (e.g. `data_exfil`, `account_takeover`, `login_anomaly`).
 
 Pull the Risk-Indicators table directly from `<user>_indicators_Nd.json`. Pull the Timeline rows from the top of `<user>_timeline_Nd.md` (filter to material events around your findings — don't paste all 3000+).
 
@@ -215,7 +217,7 @@ Don't paste the full report into chat — the point is the files.
 ## Examples
 
 **"investigate suspected data exfiltration by John.Doe@companyDomain"**
-→ 30d window. Load drive, gmail, token; cross-check ips. Focus on bulk downloads, external sends to free providers, and new OAuth grants with broad scopes. Output report to `logs/john_huanca_G_Logs/investigation_data_exfil_<date>.md`.
+→ 30d window. Load drive, gmail, token; cross-check ips. Focus on bulk downloads, external sends to free providers, and new OAuth grants with broad scopes. Output report to `~/Documents/WorkspaceLogs/john_huanca_G_Logs/investigation_data_exfil_<date>.md`.
 
 **"unusual login activity for dami.odubanjo this week"**
 → 7d window. Load login + ips. Look for new countries, `suspicious_login` events, impossible travel. Don't load Drive/Gmail unless something jumps out.
