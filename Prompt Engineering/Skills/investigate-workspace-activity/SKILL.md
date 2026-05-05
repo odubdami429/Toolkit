@@ -27,18 +27,18 @@ The toolkit ships with a few scripts that do the heavy lifting — prefer them o
 
 | Script | What it does | When to use |
 |---|---|---|
-| `score_indicators.py <user> --days N` | Per-source risk scoring against `sanctioned_apps.json` + `ip_baseline.json`. Emits `<user>_indicators_Nd.json` with `summary`, `indicators`, and `no_evidence_for`. | Run first on every investigation — its output drives the report's Risk-Indicators table and tells you which sources had nothing to flag. |
-| `build_timeline.py <user> --days N --format md` | Merges drive/gmail/login/token CSVs into a chronological "material events" file. Filters Drive views and inbound gmail noise; keeps shares, downloads, OAuth grants, login events, forwarding rule changes. | Use to populate the Timeline section. Default output is markdown table — paste-ready. |
-| `top_collaborators.py <user> --days N` | Ranks internal/external peers by Drive shares + Gmail co-recipients. | Use when deciding who to pivot to, or to spot an external recipient that's unusual for the subject. |
-| `pull_outbound_gmail.py <user> --days N` | Filters the existing gmail CSV down to events that *look* outbound (heuristic — Reports API gmail is mostly inbound). Emits per-domain summary. | Use when the scenario is exfil/insider-threat. If it returns 0 rows, document the limitation in the report's Caveats. |
-| `md_to_pdf.py <report.md>` | Stdlib markdown → HTML → Chrome-headless PDF. | **Always run after writing the .md** — the analyst's standing preference is both .md AND .pdf as the final deliverable for every investigation. |
+| `.claude/skills/investigate-workspace-activity/score_indicators.py <user> --days N` | Per-source risk scoring against `sanctioned_apps.json` + `ip_baseline.json`. Emits `<user>_indicators_Nd.json` with `summary`, `indicators`, and `no_evidence_for`. | Run first on every investigation — its output drives the report's Risk-Indicators table and tells you which sources had nothing to flag. |
+| `.claude/skills/investigate-workspace-activity/build_timeline.py <user> --days N --format md` | Merges drive/gmail/login/token CSVs into a chronological "material events" file. Filters Drive views and inbound gmail noise; keeps shares, downloads, OAuth grants, login events, forwarding rule changes. | Use to populate the Timeline section. Default output is markdown table — paste-ready. |
+| `.claude/skills/investigate-workspace-activity/top_collaborators.py <user> --days N` | Ranks internal/external peers by Drive shares + Gmail co-recipients. | Use when deciding who to pivot to, or to spot an external recipient that's unusual for the subject. |
+| `.claude/skills/investigate-workspace-activity/pull_outbound_gmail.py <user> --days N` | Filters the existing gmail CSV down to events that *look* outbound (heuristic — Reports API gmail is mostly inbound). Emits per-domain summary. | Use when the scenario is exfil/insider-threat. If it returns 0 rows, document the limitation in the report's Caveats. |
+| `.claude/skills/investigate-workspace-activity/md_to_pdf.py <report.md>` | Stdlib markdown → HTML → Chrome-headless PDF. | **Always run after writing the .md** — the analyst's standing preference is both .md AND .pdf as the final deliverable for every investigation. |
 
-Two reference files the scripts read:
+Two reference files the scripts read (both live alongside the scripts in `.claude/skills/investigate-workspace-activity/`):
 
-- `sanctioned_apps.json` — known-good OAuth `client_id`s (). Anything not in here gets flagged as "unsanctioned" — not necessarily malicious, but worth a look. Update it as new apps are vetted.
-- `ip_baseline.json` — per-user expected countries/ASNs (). The login scorer uses this to flag unfamiliar geos. Add users / update as people relocate.
+- `sanctioned_apps.json` — known-good OAuth `client_id`s (BetterCloud, Code42, Glean, Chrome, gws CLI, phishing reporter, G2, Zoom for G Suite). Anything not in here gets flagged as "unsanctioned" — not necessarily malicious, but worth a look. Update it as new apps are vetted.
+- `ip_baseline.json` — per-user expected countries/ASNs (e.g., dami → CA/Distributel, Jack → CA/TELUS, john → US/NordVPN). The login scorer uses this to flag unfamiliar geos. Add users / update as people relocate.
 
-If a referenced script doesn't exist in the working directory, fall back to reading the CSVs directly using the catalog in §5 — but mention the gap so the toolkit can be patched.
+If a referenced script doesn't exist at the expected path, fall back to reading the CSVs directly using the catalog in §5 — but mention the gap so the toolkit can be patched.
 
 ## Workflow
 
@@ -65,15 +65,15 @@ Check for `logs/<first>_<last>_G_Logs/` and inspect the most recent manifest JSO
 For most scenarios, this is two commands:
 
 ```
-python3 score_indicators.py <subject> --days <N>
-python3 build_timeline.py <subject> --days <N> --format md
+python3 .claude/skills/investigate-workspace-activity/score_indicators.py <subject> --days <N>
+python3 .claude/skills/investigate-workspace-activity/build_timeline.py <subject> --days <N> --format md
 ```
 
 For exfil/insider scenarios, also:
 
 ```
-python3 pull_outbound_gmail.py <subject> --days <N>
-python3 top_collaborators.py <subject> --days <N>
+python3 .claude/skills/investigate-workspace-activity/pull_outbound_gmail.py <subject> --days <N>
+python3 .claude/skills/investigate-workspace-activity/top_collaborators.py <subject> --days <N>
 ```
 
 Read the resulting `_indicators_Nd.json` — that's your Risk-Indicators table and your `no_evidence_for` list (use it to fill in the "we checked X and found nothing" parts of the report so silence is documented, not assumed).
@@ -82,7 +82,7 @@ Read the resulting `_indicators_Nd.json` — that's your Risk-Indicators table a
 
 If the scripts don't surface what you need (e.g., the scenario calls for keyword searches on email subjects, or a specific document title), drop to the CSVs:
 
-- Filter `actor_impersonation == false` for human-driven events. Glean for the bulk of raw events as the user — they're noise unless they're directly relevant (e.g., a *new* OAuth grant *to* one of those apps within the window).
+- Filter `actor_impersonation == false` for human-driven events. Glean, Code42, BetterCloud account for the bulk of raw events as the user — they're noise unless they're directly relevant (e.g., a *new* OAuth grant *to* one of those apps within the window).
 - Restrict to the investigation window.
 - For drive specifically, filter `actor_email == <subject>` to drop stuff *other* people did to the user's docs.
 - For gmail recipients, look at `flattened_destinations` (format `<source>::<address>`), not `destination` (usually empty). The Reports API gmail data is mostly inbound — see `pull_outbound_gmail.py` for the outbound heuristic.
@@ -131,11 +131,11 @@ The timeline script gives you the chronological view. For each high/med indicato
 
 ### 7. Write the report (and render to PDF)
 
-Save to `logs/<first>_<last>_G_Logs/<first>_<last>_investigation_<scenario_slug>_<YYYY-MM-DD>.md`. Note the user's name **prefixes the filename itself**, not just the folder — the analyst's standing preference is filenames like `kurt_hundeck_investigation_login_anomaly_2026-05-02.md` so reports stay identifiable when pulled out of their folders (attached to tickets, posted to Slack, dropped into a Drive folder of mixed reports). Pick a short kebab-case slug from the scenario (e.g. `data_exfil`, `account_takeover`, `login_anomaly`).
+Save to `logs/<first>_<last>_G_Logs/<first>_<last>_investigation_<scenario_slug>_<YYYY-MM-DD>.md`. Note the user's name **prefixes the filename itself**, not just the folder — the analyst's standing preference is filenames like `John_Doe_investigation_login_anomaly_2026-05-02.md` so reports stay identifiable when pulled out of their folders (attached to tickets, posted to Slack, dropped into a Drive folder of mixed reports). Pick a short kebab-case slug from the scenario (e.g. `data_exfil`, `account_takeover`, `login_anomaly`).
 
 Pull the Risk-Indicators table directly from `<user>_indicators_Nd.json`. Pull the Timeline rows from the top of `<user>_timeline_Nd.md` (filter to material events around your findings — don't paste all 3000+).
 
-**Then immediately render the PDF:** `python3 md_to_pdf.py <path>.md`. The analyst's standing preference is both formats — the .md is editable / pasteable, the .pdf is the ticket / Doc / Slack-share artifact. Don't wait to be asked.
+**Then immediately render the PDF:** `python3 .claude/skills/investigate-workspace-activity/md_to_pdf.py <path>.md`. The analyst's standing preference is both formats — the .md is editable / pasteable, the .pdf is the ticket / Doc / Slack-share artifact. Don't wait to be asked.
 
 Use this template:
 
@@ -210,12 +210,12 @@ Don't paste the full report into chat — the point is the files.
 - **Quote, don't paraphrase, when citing logs.** Include doc titles, recipient addresses, client_ids, IPs, timestamps verbatim. The report needs to stand up in a ticket.
 - **Verdict honesty.** If the data is inconclusive, the executive summary must say so. Don't manufacture concern to justify the work; don't downplay genuine risk to be tidy.
 - **Privacy.** The report contains real email subjects, recipients, and document titles. Flag this before the analyst pastes it anywhere external.
-- **Sanctioned-app list isn't gospel.** It reflects what's been seen in past runs (Glean, Google Chrome, gws CLI). New legitimate apps roll out — flag them as "unfamiliar" rather than "malicious", and let the analyst confirm.
+- **Sanctioned-app list isn't gospel.** It reflects what's been seen in past runs (BetterCloud, Code42, Glean, Google Chrome, gws CLI, phishing reporter). New legitimate apps roll out — flag them as "unfamiliar" rather than "malicious", and let the analyst confirm.
 
 ## Examples
 
 **"investigate suspected data exfiltration by John.Doe@companyDomain"**
-→ 30d window. Load drive, gmail, token; cross-check ips. Focus on bulk downloads, external sends to free providers, and new OAuth grants with broad scopes. Output report to `logs/John_huanca_G_Logs/investigation_data_exfil_<date>.md`.
+→ 30d window. Load drive, gmail, token; cross-check ips. Focus on bulk downloads, external sends to free providers, and new OAuth grants with broad scopes. Output report to `logs/john_huanca_G_Logs/investigation_data_exfil_<date>.md`.
 
 **"unusual login activity for dami.odubanjo this week"**
 → 7d window. Load login + ips. Look for new countries, `suspicious_login` events, impossible travel. Don't load Drive/Gmail unless something jumps out.
@@ -226,5 +226,5 @@ Don't paste the full report into chat — the point is the files.
 **"can you build me a case summary for the dami.odubanjo investigation we did earlier"**
 → Logs already exist. Skip pull, read existing CSVs, write the report.
 
-**"there's a Doppel alert for John — what's his recent activity look like?"**
+**"there's a Doppel alert for john — what's his recent activity look like?"**
 → Treat as account-compromise scenario at 14d. Pull the alert details from the analyst's message into the **Scenario** field of the report verbatim.

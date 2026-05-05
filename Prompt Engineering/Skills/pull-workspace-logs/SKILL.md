@@ -13,15 +13,15 @@ Investigators routinely need a user's full Workspace audit picture (Drive activi
 
 ## Scripts
 
-All scripts live at `<TOOLKIT_ROOT>` (set during setup — see the toolkit's README.md). Each writes to `logs/<first>_<last>_G_Logs/` (auto-derived from the email's local part) and produces a manifest JSON.
+All scripts live at `.claude/skills/pull-workspace-logs/` (relative to the toolkit root). Each writes to `logs/<first>_<last>_G_Logs/` (auto-derived from the email's local part) and produces a manifest JSON.
 
 | Script | What it pulls |
 |---|---|
-| `pull_drive_logs.py <email>` | drive + login |
-| `pull_gmail_logs.py <email>` | gmail + user_accounts + admin |
-| `pull_oauth_logs.py <email>` | token (OAuth grants/revokes/authorizes) |
-| `pull_audit_logs.py <email> --apps <list>` | any Workspace app (generic) |
-| `user_ips.py <email>` | distinct IPs with country/city/org enrichment |
+| `.claude/skills/pull-workspace-logs/pull_drive_logs.py <email>` | drive + login |
+| `.claude/skills/pull-workspace-logs/pull_gmail_logs.py <email>` | gmail + user_accounts + admin |
+| `.claude/skills/pull-workspace-logs/pull_oauth_logs.py <email>` | token (OAuth grants/revokes/authorizes) |
+| `.claude/skills/pull-workspace-logs/pull_audit_logs.py <email> --apps <list>` | any Workspace app (generic) |
+| `.claude/skills/pull-workspace-logs/user_ips.py <email>` | distinct IPs with country/city/org enrichment |
 
 Common flags: `--days N` (default 30), `--out DIR` (default `logs`).
 
@@ -35,17 +35,16 @@ Common flags: `--days N` (default 30), `--out DIR` (default `logs`).
 
 ### 2. Run the scripts
 
-Run sequentially — the Reports API rate-limits parallel calls and you risk truncated CSVs:
+Run sequentially from the toolkit root — the Reports API rate-limits parallel calls and you risk truncated CSVs:
 
 ```bash
-cd <TOOLKIT_ROOT>
-python3 pull_drive_logs.py <email> --days <N>
-python3 pull_gmail_logs.py <email> --days <N>
-python3 pull_oauth_logs.py <email> --days <N>
-python3 user_ips.py        <email> --days <N>
+python3 .claude/skills/pull-workspace-logs/pull_drive_logs.py <email> --days <N>
+python3 .claude/skills/pull-workspace-logs/pull_gmail_logs.py <email> --days <N>
+python3 .claude/skills/pull-workspace-logs/pull_oauth_logs.py <email> --days <N>
+python3 .claude/skills/pull-workspace-logs/user_ips.py        <email> --days <N>
 ```
 
-Use `pull_audit_logs.py --apps <list>` only when the user wants a non-default app set (e.g. only `groups,calendar`).
+Use `.claude/skills/pull-workspace-logs/pull_audit_logs.py --apps <list>` only when the user wants a non-default app set (e.g. only `groups,calendar`).
 
 If a script reports a `gws` auth error, stop and point the user at `gws auth status` — don't try to fix the auth inline.
 
@@ -80,7 +79,7 @@ Do not list all possible next steps.
 - **Avoid re-pulling.** If the user asks for analysis on data already in `logs/<first>_<last>_G_Logs/`, read those CSVs instead of re-running. The manifest JSON has timestamps so you can tell freshness.
 - **Token CSVs are huge** (often 50k+ rows over 30 days). When scanning for new OAuth grants, filter to `event_name=authorize` and dedupe by `client_id` rather than reading the whole file.
 - **Empty CSVs are normal.** `user_accounts` and `admin` are usually empty for end users — that means no settings/admin changes, not a failed pull.
-- **OAuth-impersonated traffic dominates.** When looking for human-driven exfil signals, filter `actor_impersonation == false` (column in every CSV). Glean, etc. account for the bulk of raw events.
+- **OAuth-impersonated traffic dominates.** When looking for human-driven exfil signals, filter `actor_impersonation == false` (column in every CSV). Glean, Code42, etc. account for the bulk of raw events.
 - **Gmail recipient field.** Real recipients live in `flattened_destinations` (format `<source>::<address>`). The `destination` column is usually empty.
 - **Privacy.** These logs include real subjects, recipients, and document titles. Don't paste them into third-party services without warning the user.
 
@@ -95,11 +94,11 @@ Do not list all possible next steps.
 **"just get me dami's drive logs"**
 → Only `pull_drive_logs.py`. Don't run the others.
 
-**"what new OAuth apps has John authorized this month?"**
+**"what new OAuth apps has john authorized this month?"**
 → Only `pull_oauth_logs.py --days 30`, then filter the resulting CSV to `event_name=authorize` and dedupe by `client_id`.
 
-**"what IPs did John use this week"**
+**"what IPs did john use this week"**
 → Only `user_ips.py --days 7`, then read the resulting CSV and surface countries + the direct-actor IP.
 
-**"refresh John's logs"**
+**"refresh john's logs"**
 → Re-run all four scripts on the same user. Mention if the output folder already existed (files will be overwritten).
