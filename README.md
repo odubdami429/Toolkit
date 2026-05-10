@@ -46,6 +46,9 @@ AI prompts and Claude Code skills used for security and IT operations.
 | `Incident Response AI Agent.txt` | System prompt for an AI-assisted incident response agent. |
 | `Skills/investigate-workspace-activity` | Claude Code skill for investigating Google Workspace activity. |
 | `Skills/pull-workspace-logs` | Claude Code skill for pulling Google Workspace logs. |
+| `Skills/recent-breach-tracker` | Claude Code skill for compiling a roundup of recent cybersecurity breaches. |
+| `Skills/security-breach-intel` | Claude Code skill for producing a deep-dive intelligence report on a specific breach. |
+| `Skills/eml-security-analyzer` | Claude Code skill for analyzing `.eml` files, raw headers, or Proofpoint TAP JSON for phishing indicators. |
 
 ### Python
 Placeholder for future Python scripts.
