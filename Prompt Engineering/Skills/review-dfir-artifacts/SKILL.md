@@ -14,11 +14,14 @@ All helper scripts live at `~/.claude/skills/review-dfir-artifacts/`:
 | Script | Purpose |
 |---|---|
 | `decode_win_output.py <file>` | Decode Windows UTF-16 LE files to readable text (print to stdout) |
-| `decode_win_output.py <dir> --all --inplace` | Decode all .txt/.csv files in a directory tree in-place |
+| `decode_win_output.py <dir> --all --inplace` | Decode all .txt/.csv files in a directory tree in-place (idempotent — safe to re-run) |
 | `read_browser_history.py <dir> --scan` | Extract URLs from all SQLite browser history files found |
 | `read_browser_history.py <file>` | Extract URLs from a single Chrome/Edge/Safari history DB |
 | `parse_evtx.py <dir> --scan` | Parse all .evtx Windows Event Log files (requires `pip install python-evtx lxml`) |
+| `parse_evtx.py <dir> --scan --date-range` | Show only the date range covered by each .evtx (no events printed) |
 | `parse_evtx.py --list-ids` | Print reference table of notable Windows event IDs |
+| `read_scheduled_tasks.py <dir>` | Parse task XML files and extract Command/Arguments/Triggers/RunAs |
+| `read_scheduled_tasks.py <dir> --flagged-only` | Show only tasks with suspicious command patterns |
 
 ## Platform detection
 
@@ -36,7 +39,9 @@ All `.txt` and `.csv` files produced by `DFIR_WIN.ps1` are **UTF-16 LE** (PowerS
 python3 ~/.claude/skills/review-dfir-artifacts/decode_win_output.py <dir> --all --inplace
 ```
 
-Run this once on the output directory before reading any files. It overwrites files in-place with clean UTF-8. Safe to run repeatedly (idempotent once decoded).
+Run this once on the output directory before reading any files. It overwrites files in-place with clean UTF-8.
+
+**The decoder is idempotent and safe to re-run.** It detects encoding via BOM bytes before doing anything: UTF-16 LE files (PowerShell default) start with `\xff\xfe` and are decoded; files with no BOM are assumed already-UTF-8 and left unchanged. Running `--inplace` twice on the same directory will not corrupt files.
 
 ## Artifact map
 
@@ -178,6 +183,24 @@ Then check per-user:
 - Standard Microsoft tasks are normal; look for tasks in unexpected subdirectories or with unusual names
 - Any task running a script from a user's profile path or temp directory is suspicious
 
+`scheduled_task.txt` is a **directory listing only** — it shows names and timestamps but not what each task actually runs. For any task that is unfamiliar, recently created, or has an unusual name, read its XML content to see the actual command:
+
+```bash
+# If task XML files were collected alongside the artifact:
+python3 ~/.claude/skills/review-dfir-artifacts/read_scheduled_tasks.py "<artifact_dir>/tasks/" --flagged-only
+
+# Or read a single task XML (these are plain UTF-16 XML files):
+python3 ~/.claude/skills/review-dfir-artifacts/read_scheduled_tasks.py "C:\Windows\System32\Tasks\<TaskName>"
+```
+
+If the task XMLs are not in the artifact, pull them from the live machine via RTR:
+```powershell
+# Via CrowdStrike RTR or any live shell:
+Get-Content "C:\Windows\System32\Tasks\<TaskName>" | Select-String -Pattern "Command|Arguments|UserId|Triggers" -Context 0,1
+```
+
+Key fields to extract from task XML: `<Command>` (the executable), `<Arguments>`, `<WorkingDirectory>`, `<UserId>` (run-as account), and the trigger type (LogonTrigger, TimeTrigger, BootTrigger).
+
 Red flags (both platforms):
 - LaunchAgent/Daemon/Task pointing to a script in a user's home, Downloads, or temp directory
 - Commands with base64-encoded payloads or piped through `bash -c` / `cmd /c`
@@ -205,9 +228,30 @@ Red flags (both platforms):
 **Windows** — Parse event logs:
 ```bash
 # Requires: pip install python-evtx lxml
-python3 ~/.claude/skills/review-dfir-artifacts/parse_evtx.py "<output_dir>/windows_logs" --scan
+# Step 1: Check date range covered (fast — no events printed)
+python3 ~/.claude/skills/review-dfir-artifacts/parse_evtx.py "<output_dir>/windows_logs" --scan --date-range
+
+# Step 2: Parse all key security events and save to file
+python3 ~/.claude/skills/review-dfir-artifacts/parse_evtx.py "<output_dir>/windows_logs" --scan > "$env:TEMP\evtx_parsed.txt" 2>&1
 ```
+
 If `python-evtx` is not installed, note that and tell the analyst: "Windows Event Logs (.evtx) require `pip install python-evtx lxml` to parse. Run that command then retry."
+
+**Output format** — one event per line:
+```
+Timestamp              EventID  Description                            Key=Value details
+2026-05-04 19:57:03       7045  New Service Installed                  ServiceName=WSL Service, ImagePath=C:\Windows\system32\wsl.exe
+2026-05-12 09:14:22       4688  Process Created                        SubjectUserName=erming, NewProcessName=C:\Windows\System32\reg.exe
+```
+
+**Grep the saved output** for specific event IDs:
+```bash
+# Windows PowerShell
+Select-String -Path "$env:TEMP\evtx_parsed.txt" -Pattern "^\d{4}-\d{2}-\d{2}.{14,}\b(4624|4625|4648|4688|4697|7045|4720|4726|1102)\b"
+
+# Bash / Python (on the evtx_parsed.txt file)
+grep -E "^[0-9]{4}-[0-9]{2}-[0-9]{2}.{14,}(4624|4625|4648|4688|4697|7045|4720|4726|1102)" evtx_parsed.txt
+```
 
 Key events to highlight:
 - 4624 (Logon): note LogonType=3 (network) or LogonType=10 (RemoteInteractive/RDP)
@@ -217,6 +261,8 @@ Key events to highlight:
 - 4697/7045 (Service Installed): persistence vector
 - 4720/4726 (Account Created/Deleted)
 - 1102 (Log Cleared): major red flag
+
+**If 4624/4625/4648 events are absent:** this does not mean no logins occurred — it means the Security audit policy is not configured to log logon events. Note this as a coverage gap in the findings. The policy setting is: `Computer Configuration > Windows Settings > Security Settings > Advanced Audit Policy Configuration > Logon/Logoff`.
 
 ### Step 9 — User file activity
 
@@ -230,6 +276,32 @@ Read `<user>_Downloads_files.txt`:
 Read `<user>_Documents_files.txt`:
 - Note any large archives, database dumps, or unexpected sensitive-looking file names
 - Flag: files with names suggesting exfiltration (backup, export, dump, all-data, etc.)
+
+**Large file fallback:** Directory listing files (`_Downloads_files.txt`, `_All_files.txt`) can exceed 1MB for users with large home directories. If the Read tool errors or the file is clearly too large, use a targeted Python grep instead of attempting a full read:
+
+```python
+import re, sys
+
+path = r"<full_path_to_file>"
+hits = []
+with open(path, encoding='utf-8', errors='replace') as f:
+    for line in f:
+        # Executables, scripts, archives
+        if re.search(r'\.(exe|msi|dmg|pkg|ps1|bat|cmd|vbs|js|py|sh|zip|7z|rar|tar|gz)\b', line, re.IGNORECASE):
+            hits.append(line.rstrip())
+        # Suspicious name patterns
+        elif re.search(r'(backup|export|dump|exfil|harvest|all.?data|loot)', line, re.IGNORECASE):
+            hits.append(line.rstrip())
+
+for h in hits:
+    print(h)
+print(f"\n{len(hits)} matches found")
+```
+
+On Windows PowerShell:
+```powershell
+Select-String -Path "<path>" -Pattern "\.(exe|msi|ps1|bat|vbs|js|py|zip|7z|rar)(\s|$)|backup|export|dump" -CaseSensitive:$false | Select-Object -ExpandProperty Line
+```
 
 ### Step 10 — Shell / PowerShell history
 
@@ -249,18 +321,50 @@ Read `<user>_Documents_files.txt`:
 
 ### Step 11 — Browser history
 
-Run the browser history extractor:
+Browser history databases can contain hundreds of URLs. Always save output to a file first, then analyze it in two passes — never read inline and risk truncation.
+
+**Step 11a — Extract to file (per history DB)**
+
+Find all browser history files in the artifact directory, then extract each one:
 ```bash
-python3 ~/.claude/skills/review-dfir-artifacts/read_browser_history.py "<output_dir>" --scan
+# List all history files
+find "<output_dir>" -name "*History*" -o -name "*history_file*" -o -name "*safari_history*"
+
+# Extract each file to a dedicated output (repeat for every file found)
+python3 ~/.claude/skills/review-dfir-artifacts/read_browser_history.py "<history_file>" > /tmp/browser_<user>_<browser>.txt 2>&1
 ```
 
-Focus on:
-- Domains not associated with corporate tools or well-known services
-- File download URLs (look for direct links to .exe, .zip, .ps1, .sh, .py files)
-- Paste sites (pastebin.com, paste.ee, ghostbin.com, hastebin.com) — often used to host payloads
-- Remote access tools (anydesk.com, teamviewer.com, ngrok.io, localtunnel.me)
-- Crypto exchanges if data theft for financial gain is suspected
-- Dark web or proxy sites accessed around the incident window
+On Windows (PowerShell):
+```powershell
+python "~/.claude/skills/review-dfir-artifacts/read_browser_history.py" "<history_file>" 2>&1 | Out-File -Encoding utf8 "$env:TEMP\browser_<user>_<browser>.txt"
+```
+
+**Step 11b — Red-flag grep (entire file)**
+
+Run this grep against every extracted output file. A clean result is expected; any hit warrants investigation:
+```bash
+grep -iE "(pastebin|paste\.ee|ghostbin|hastebin|privatebin|rentry\.co|ngrok|localtunnel|serveo|anydesk|teamviewer|\.onion|mega\.nz|transfer\.sh|filebin|anonfiles|gofile|temp\.sh|dropmefiles|raw\.githubusercontent\.com/[^/]+/[^/]+/[^/]+\.(ps1|sh|py|bat|vbs|exe)|/download[^?]*\.(exe|msi|ps1|sh|py|bat|vbs|js)|discord(app)?\.com/api/webhooks)" /tmp/browser_*.txt
+```
+
+**Step 11c — Domain frequency count (entire file)**
+
+Extract every domain that was actually visited (has a real timestamp, not N/A) and review the full list:
+```bash
+grep -E "^20[0-9]{2}-" /tmp/browser_<user>_<browser>.txt \
+  | grep -oE "https?://[^/ ]+" \
+  | sed 's|https\?://||; s|/.*||' \
+  | sort | uniq -c | sort -rn
+```
+
+Review ALL domains in the output — not just the top ones. Flag anything that is:
+- Not a recognized corporate, SaaS, or well-known consumer service
+- A file-hosting, paste, or anonymization service
+- A remote-access tool vendor
+- An IP address (direct IP browsing is unusual)
+
+**Step 11d — Note bookmarks/typed URLs with no visits**
+
+Lines prefixed with `N/A` are saved URLs with zero visits in this history (bookmarks, typed bar history, etc.). Review these separately for internal tool hostnames, IP addresses, or unusual domains that may indicate reconnaissance or saved attacker infrastructure.
 
 ### Step 12 — Firewall check
 
@@ -373,9 +477,10 @@ Do not reproduce the full report as text — the xlsx is the deliverable.
 ## Behaviors and caveats
 
 - **Read selectively.** Don't dump entire large files into context. For process lists and connection tables, read the first 100-200 lines and then grep for patterns. For shell history, read the full file (usually small).
+- **Browser history must be fully reviewed.** Never read browser history output inline — it will be truncated and you will miss URLs. Always redirect to a temp file (Step 11a) and analyze with grep + domain-frequency count (Steps 11b–11c). A history with 200+ URLs is normal; missing any of them could mean missing an IOC.
 - **Mac Chrome history is a SQLite binary.** Never try to read it directly. Always use `read_browser_history.py`.
-- **Windows files look garbled until decoded.** If a file looks like `H o s t   N a m e :   P R I C E L I`, run the decoder first.
-- **The `bvasquez_All_files.txt` type files can be huge.** For those, search for specific patterns (executables, unusual file types) using grep rather than reading the whole file.
+- **Windows files look garbled until decoded.** If a file looks like `H o s t   N a m e :   P R I C E L I`, run the decoder first. The decoder is BOM-aware and idempotent — it is safe to re-run on already-decoded files.
+- **Directory listing files (`_All_files.txt`, `_Downloads_files.txt`) can be 1MB+.** If the Read tool errors or truncates, switch to the Python grep pattern in Step 9 rather than attempting a full read. Never skip these files entirely — they contain the file activity evidence.
 - **Stay in scope.** If the analyst mentioned a specific user, focus there first before reviewing other users.
 - **Normalize your findings.** Corporate endpoints will have a lot of noise (MDM agents, AV, VPN clients, JAMF, CrowdStrike). Don't flag these. Focus on what shouldn't be there.
 - **CrowdStrike RTR shows in ps aux.** The RTR script execution will appear as a `/bin/zsh -c ...` process — that's expected, not suspicious.
@@ -385,10 +490,10 @@ Do not reproduce the full report as text — the xlsx is the deliverable.
 **"review the DFIR output for the NY-W6F71W71DP machine"**
 → Path is provided or implied. Run full analysis on the Mac output directory.
 
-**"triage the Windows DFIR for PRICELI-I4ITMFJ, we got an alert for malware"**
+**"triage the Windows DFIR for DESKTOP-I4ITMFJ, we got an alert for malware"**
 → Decode files first, then focus extra attention on processes, persistence, and shell history.
 
-**"review the DFIR from /Users/analyst/Downloads/PRICELI-I4ITMFJ, focus on network connections and PowerShell"**
+**"review the DFIR from /Users/analyst/Downloads/DESKTOP-I4ITMFJ, focus on network connections and PowerShell"**
 → Decode, then prioritize Steps 4 and 10. Still produce the full report but go deeper on those two sections.
 
 **"check both DFIR outputs for the same user"**

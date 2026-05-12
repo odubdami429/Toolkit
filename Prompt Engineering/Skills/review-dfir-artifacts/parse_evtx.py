@@ -8,7 +8,16 @@ Usage:
   python3 parse_evtx.py <evtx_file> --event-ids 4624,4625    # specific event IDs
   python3 parse_evtx.py <evtx_file> --all                     # all events (verbose)
   python3 parse_evtx.py <dir>  --scan                         # parse all .evtx in directory
+  python3 parse_evtx.py <dir>  --scan --date-range            # date range only (no events)
   python3 parse_evtx.py --list-ids                            # show reference event ID list
+
+Output format (one line per event):
+  <Timestamp>            <EventID>  <Description>                      <Key=Value details>
+  2026-05-04 19:57:03        7045  New Service Installed                  ServiceName=WSL Service, ImagePath=...
+  2026-05-12 09:14:22        4688  Process Created                        SubjectUserName=erming, NewProcessName=...
+
+To grep the saved output for specific event IDs:
+  grep -E "^[0-9]{4}-[0-9]{2}-[0-9]{2}.{14,}\\b(4624|4625|4648|4688|4697|7045|4720|4726|1102)\\b" output.txt
 """
 import sys
 import os
@@ -68,31 +77,52 @@ DETAIL_FIELDS = [
 HIGH_VALUE_IDS = set(NOTABLE_SECURITY) | set(NOTABLE_SYSTEM)
 
 
-def parse_evtx_file(evtx_path, event_id_filter=None, limit=1000, show_all=False):
+def _parse_ts(raw_ts):
+    """Normalise a SystemTime string to 'YYYY-MM-DD HH:MM:SS'."""
+    if not raw_ts:
+        return ''
+    return raw_ts.split('.')[0].replace('T', ' ') if 'T' in raw_ts else raw_ts
+
+
+def parse_evtx_file(evtx_path, event_id_filter=None, limit=1000, show_all=False, date_range_only=False):
     try:
         import Evtx.Evtx as evtx
         from lxml import etree
     except ImportError:
         print("ERROR: python-evtx not installed.", file=sys.stderr)
         print("Install with:  pip install python-evtx lxml", file=sys.stderr)
-        print("\nAlternative: convert the .evtx to XML first using:", file=sys.stderr)
-        print("  python-evtx dump <file.evtx> > events.xml", file=sys.stderr)
         sys.exit(1)
 
     ns = {'e': 'http://schemas.microsoft.com/win/2004/08/events/event'}
     all_descriptions = {**NOTABLE_SECURITY, **NOTABLE_SYSTEM}
 
-    count = 0
-    print(f"\nParsing: {evtx_path}")
-    print(f"{'Timestamp':<22} {'EventID':>7}  {'Description':<38} Details")
-    print("-" * 130)
+    shown = 0
+    total = 0
+    min_ts = None
+    max_ts = None
+
+    if not date_range_only:
+        print(f"\nParsing: {evtx_path}")
+        print(f"{'Timestamp':<22} {'EventID':>7}  {'Description':<38} Details")
+        print("-" * 130)
 
     with evtx.Evtx(evtx_path) as log:
         for record in log.records():
-            if count >= limit:
-                break
             try:
                 root = etree.fromstring(record.xml().encode('utf-8'))
+
+                ts_el = root.find('.//e:TimeCreated', ns)
+                ts = _parse_ts(ts_el.get('SystemTime', '') if ts_el is not None else '')
+
+                if ts:
+                    total += 1
+                    if min_ts is None or ts < min_ts:
+                        min_ts = ts
+                    if max_ts is None or ts > max_ts:
+                        max_ts = ts
+
+                if date_range_only:
+                    continue
 
                 eid_el = root.find('.//e:EventID', ns)
                 event_id = int(eid_el.text) if eid_el is not None else 0
@@ -104,9 +134,8 @@ def parse_evtx_file(evtx_path, event_id_filter=None, limit=1000, show_all=False)
                     if event_id not in HIGH_VALUE_IDS:
                         continue
 
-                ts_el = root.find('.//e:TimeCreated', ns)
-                ts = (ts_el.get('SystemTime', '') if ts_el is not None else '')
-                ts = ts.split('.')[0].replace('T', ' ') if 'T' in ts else ts
+                if shown >= limit:
+                    continue
 
                 description = all_descriptions.get(event_id, '')
 
@@ -124,15 +153,21 @@ def parse_evtx_file(evtx_path, event_id_filter=None, limit=1000, show_all=False)
                 )
 
                 print(f"{ts:<22} {event_id:>7}  {description:<38} {details}")
-                count += 1
+                shown += 1
 
             except Exception:
                 continue
 
-    print(f"\n[{count} records shown | limit={limit}]")
+    date_range_str = f"{min_ts} → {max_ts}" if min_ts else "no timestamps found"
+    if date_range_only:
+        print(f"  {os.path.basename(evtx_path)}: {total} records  |  {date_range_str}")
+    else:
+        print(f"\n[{shown} matching records shown | {total} total records | {date_range_str} | limit={limit}]")
+
+    return min_ts, max_ts, total
 
 
-def scan_and_parse(directory, **kwargs):
+def scan_and_parse(directory, date_range_only=False, **kwargs):
     evtx_files = []
     for root, dirs, files in os.walk(directory):
         for fname in files:
@@ -143,16 +178,35 @@ def scan_and_parse(directory, **kwargs):
         print("No .evtx files found.", file=sys.stderr)
         return
 
+    if date_range_only:
+        print(f"\nDate ranges for .evtx files in: {directory}")
+        print("-" * 70)
+
+    overall_min = None
+    overall_max = None
+    overall_total = 0
+
     for path in evtx_files:
-        print(f"\n{'='*80}")
-        print(f"LOG FILE: {os.path.basename(path)}")
-        print('='*80)
+        if not date_range_only:
+            print(f"\n{'='*80}")
+            print(f"LOG FILE: {os.path.basename(path)}")
+            print('='*80)
         try:
-            parse_evtx_file(path, **kwargs)
+            min_ts, max_ts, total = parse_evtx_file(path, date_range_only=date_range_only, **kwargs)
+            overall_total += total
+            if min_ts and (overall_min is None or min_ts < overall_min):
+                overall_min = min_ts
+            if max_ts and (overall_max is None or max_ts > overall_max):
+                overall_max = max_ts
         except SystemExit:
             raise
         except Exception as e:
             print(f"  [Error: {e}]")
+
+    if date_range_only:
+        print("-" * 70)
+        overall_range = f"{overall_min} → {overall_max}" if overall_min else "no timestamps"
+        print(f"  Combined:   {overall_total} records  |  {overall_range}")
 
 
 def main():
@@ -162,6 +216,7 @@ def main():
     parser.add_argument('--all', action='store_true', help='Show all events, not just notable ones')
     parser.add_argument('--limit', type=int, default=1000, help='Max records per file (default: 1000)')
     parser.add_argument('--scan', action='store_true', help='Scan directory for all .evtx files')
+    parser.add_argument('--date-range', action='store_true', help='Show date range covered by each log (no events)')
     parser.add_argument('--list-ids', action='store_true', help='Print reference event ID table and exit')
     args = parser.parse_args()
 
@@ -185,9 +240,9 @@ def main():
     kwargs = dict(event_id_filter=event_id_filter, limit=args.limit, show_all=args.all)
 
     if args.scan or os.path.isdir(args.path):
-        scan_and_parse(args.path, **kwargs)
+        scan_and_parse(args.path, date_range_only=args.date_range, **kwargs)
     else:
-        parse_evtx_file(args.path, **kwargs)
+        parse_evtx_file(args.path, date_range_only=args.date_range, **kwargs)
 
 
 if __name__ == '__main__':
