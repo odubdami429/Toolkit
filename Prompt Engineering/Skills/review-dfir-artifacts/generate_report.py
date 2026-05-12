@@ -438,8 +438,7 @@ def generate(findings_path, output_path=None):
 
     if not output_path:
         hostname = data.get("metadata", {}).get("hostname", "dfir")
-        report_dir = os.path.join(os.path.dirname(findings_path),
-                                  f"{hostname}_DFIR_Report")
+        report_dir = os.path.dirname(os.path.abspath(findings_path))
         os.makedirs(report_dir, exist_ok=True)
         output_path = os.path.join(report_dir, f"{hostname}_DFIR_Report.xlsx")
 
