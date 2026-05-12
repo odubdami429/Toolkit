@@ -13,12 +13,13 @@ This directory contains Claude Code skills for security investigation and analys
 | `recent-breach-tracker` | Compiles a structured roundup of recent cybersecurity breaches across multiple sources |
 | `security-breach-intel` | Produces a deep-dive intelligence report on a specific breach (IOCs, attribution, timeline) |
 | `eml-security-analyzer` | Analyzes `.eml` files, raw headers, or Proofpoint TAP JSON for phishing and security threats |
+| `review-dfir-artifacts` | Analyzes DFIR output from `DFIR_MAC.sh` / `DFIR_WIN.ps1` (CrowdStrike RTR) and produces a structured investigation report |
 
 ---
 
 ## Requirements
 
-The Workspace skills (`pull-workspace-logs`, `investigate-workspace-activity`) require the full toolchain below. The breach intel and email analyzer skills only need Python 3.12+ and web search access — they have no `gws` or `openpyxl` dependency.
+The Workspace skills (`pull-workspace-logs`, `investigate-workspace-activity`) require the full toolchain below. The breach intel and email analyzer skills only need Python 3.12+ and web search access — they have no `gws` or `openpyxl` dependency. The DFIR skill needs Python 3.12+, and optionally `python-evtx` + `lxml` for parsing Windows Event Logs.
 
 ### 1. Python 3.12+
 
@@ -79,6 +80,8 @@ The directory is created automatically on the first run.
 
 The breach intel skills return their reports inline in the conversation. The email analyzer writes its two reports to `/mnt/user-data/outputs/` (e.g., `email-security-report.md` and `email-safety-summary.md`).
 
+The `review-dfir-artifacts` skill reads from the DFIR output directory supplied by the analyst and writes its report (and any decoded files) back into that same directory. Helper scripts live at `~/.claude/skills/review-dfir-artifacts/`.
+
 ---
 
 ## Quick setup checklist
@@ -96,3 +99,8 @@ The breach intel skills return their reports inline in the conversation. The ema
 
 **Email analyzer (`eml-security-analyzer`):**
 - [ ] Python 3.12+ (stdlib only — `email`, `html.parser`, `json`, `re`)
+
+**DFIR review (`review-dfir-artifacts`):**
+- [ ] Python 3.12+ (stdlib covers decoding, browser history SQLite reads, and report generation)
+- [ ] (Optional) `pip install python-evtx lxml` to parse Windows `.evtx` event logs
+- [ ] DFIR output directory from `DFIR_MAC.sh` or `DFIR_WIN.ps1` available locally
