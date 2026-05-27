@@ -39,16 +39,19 @@ Custom extension attributes for Jamf Pro.
 | `Firefox_Config.xml` | Firefox configuration template. |
 
 ### Prompt Engineering
-AI prompts and Claude Code skills used for security and IT operations.
+AI prompts and AI Agent skills used for security and IT operations.
 
 | File | Description |
 |------|-------------|
 | `Incident Response AI Agent.txt` | System prompt for an AI-assisted incident response agent. |
-| `Skills/investigate-workspace-activity` | Claude Code skill for investigating Google Workspace activity. |
-| `Skills/pull-workspace-logs` | Claude Code skill for pulling Google Workspace logs. |
-| `Skills/recent-breach-tracker` | Claude Code skill for compiling a roundup of recent cybersecurity breaches. |
-| `Skills/security-breach-intel` | Claude Code skill for producing a deep-dive intelligence report on a specific breach. |
-| `Skills/eml-security-analyzer` | Claude Code skill for analyzing `.eml` files, raw headers, or Proofpoint TAP JSON for phishing indicators. |
+| `Skills/investigate-workspace-activity` | AI Agent skill for investigating Google Workspace activity. |
+| `Skills/pull-workspace-logs` | AI Agent skill for pulling Google Workspace logs. |
+| `Skills/recent-breach-tracker` | AI Agent skill for compiling a roundup of recent cybersecurity breaches. |
+| `Skills/security-breach-intel` | AI Agent skill for producing a deep-dive intelligence report on a specific breach. |
+| `Skills/eml-security-analyzer` | AI Agent skill for analyzing `.eml` files, raw headers, or Proofpoint TAP JSON for phishing indicators. |
+| `Skills/review-dfir-artifacts` | AI Agent skill for analyzing DFIR output from `DFIR_MAC.sh` / `DFIR_WIN.ps1` and producing a structured investigation report. |
+| `Skills/review-ide-extension` | AI Agent skill for downloading and statically analyzing a VS Code extension for security risks; produces a risk-scored report. |
+| `Skills/review-browser-extension` | AI Agent skill for downloading and statically analyzing a Chrome or Firefox browser extension for dangerous permissions and code-level risks; produces a risk-scored report. |
 
 ### Python
 Placeholder for future Python scripts.

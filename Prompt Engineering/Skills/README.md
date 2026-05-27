@@ -14,12 +14,14 @@ This directory contains Claude Code skills for security investigation and analys
 | `security-breach-intel` | Produces a deep-dive intelligence report on a specific breach (IOCs, attribution, timeline) |
 | `eml-security-analyzer` | Analyzes `.eml` files, raw headers, or Proofpoint TAP JSON for phishing and security threats |
 | `review-dfir-artifacts` | Analyzes DFIR output from `DFIR_MAC.sh` / `DFIR_WIN.ps1` (CrowdStrike RTR) and produces a structured investigation report |
+| `review-ide-extension` | Downloads and statically analyzes a VS Code extension for dangerous code patterns, hardcoded secrets, suspicious files, and supply chain risks; produces a risk-scored report |
+| `review-browser-extension` | Downloads and statically analyzes a Chrome or Firefox browser extension for dangerous permissions, content script scope, credential theft vectors, and code-level risks; produces a risk-scored report |
 
 ---
 
 ## Requirements
 
-The Workspace skills (`pull-workspace-logs`, `investigate-workspace-activity`) require the full toolchain below. The breach intel and email analyzer skills only need Python 3.12+ and web search access — they have no `gws` or `openpyxl` dependency. The DFIR skill needs Python 3.12+, and optionally `python-evtx` + `lxml` for parsing Windows Event Logs.
+The Workspace skills (`pull-workspace-logs`, `investigate-workspace-activity`) require the full toolchain below. The breach intel and email analyzer skills only need Python 3.12+ and web search access — they have no `gws` or `openpyxl` dependency. The DFIR skill needs Python 3.12+, and optionally `python-evtx` + `lxml` for parsing Windows Event Logs. The extension review skills (`review-ide-extension`, `review-browser-extension`) need Python 3.12+, the `requests` library, and internet access to the relevant extension stores.
 
 ### 1. Python 3.12+
 
@@ -58,7 +60,17 @@ pip install openpyxl
 
 No browser or external binary is required — the script is pure Python.
 
-### 5. ipinfo.io access (optional, for IP enrichment)
+### 5. `requests` (for extension review skills)
+
+The `review-ide-extension` and `review-browser-extension` scripts use `requests` to download extensions from the VS Code Marketplace, Open VSX, Chrome Web Store, and Firefox AMO.
+
+```bash
+pip install requests
+```
+
+The Workspace skills do not require `requests`.
+
+### 6. ipinfo.io access (optional, for IP enrichment)
 
 `pull-workspace-logs/user_ips.py` calls `https://ipinfo.io` to enrich IP addresses with country, city, and ASN data. This works unauthenticated for low volumes; for higher volumes pass a token via `--token <your_ipinfo_token>`.
 
@@ -82,6 +94,20 @@ The breach intel skills return their reports inline in the conversation. The ema
 
 The `review-dfir-artifacts` skill reads from the DFIR output directory supplied by the analyst and writes its report (and any decoded files) back into that same directory. Helper scripts live at `~/.claude/skills/review-dfir-artifacts/`.
 
+The `review-ide-extension` skill writes each extension's artifacts and report to:
+
+```
+~/Documents/extension_reviews/<publisher>_<name>_<version>/
+```
+
+The `review-browser-extension` skill writes each extension's artifacts and report to:
+
+```
+~/Documents/browser_extension_reviews/<browser>_<name-slug>_<version>/
+```
+
+Both directories are created automatically on the first run.
+
 ---
 
 ## Quick setup checklist
@@ -104,3 +130,13 @@ The `review-dfir-artifacts` skill reads from the DFIR output directory supplied 
 - [ ] Python 3.12+ (stdlib covers decoding, browser history SQLite reads, and report generation)
 - [ ] (Optional) `pip install python-evtx lxml` to parse Windows `.evtx` event logs
 - [ ] DFIR output directory from `DFIR_MAC.sh` or `DFIR_WIN.ps1` available locally
+
+**IDE extension review (`review-ide-extension`):**
+- [ ] Python 3.12+ installed
+- [ ] `pip install requests`
+- [ ] Internet access to `marketplace.visualstudio.com`, `*.vsassets.io`, and `open-vsx.org`
+
+**Browser extension review (`review-browser-extension`):**
+- [ ] Python 3.12+ installed
+- [ ] `pip install requests`
+- [ ] Internet access to `chromewebstore.google.com` and `addons.mozilla.org`
