@@ -151,6 +151,19 @@ for user in "${listOfUsersArray[@]}"; do
     #Copy over Safari history files
     cp "//Users/"$user"/Library/Safari/History.db" "//tmp/DFIR_Output/User_level_files/"$user"_files/"$user"_safari_history_file.db"
 
-    
+    #Copy over the global .claude folder (Claude Code config, session history, etc.)
+    mkdir "//tmp/DFIR_Output/User_level_files/"$user"_files/"$user"_claude_folders"
+    cp -R "//Users/"$user"/.claude" "//tmp/DFIR_Output/User_level_files/"$user"_files/"$user"_claude_folders/global_claude"
+
+    #Find and copy over any project-level .claude folders in the user's home folder
+    while IFS= read -r claudeDir; do
+        projectName=$(echo "$claudeDir" | sed "s|^//Users/$user/||; s|/\.claude$||; s|/|_|g")
+        cp -R "$claudeDir" "//tmp/DFIR_Output/User_level_files/"$user"_files/"$user"_claude_folders/project_"$projectName"_claude"
+    done < <(find "//Users/$user" -maxdepth 6 -type d -name ".claude" -not -path "//Users/$user/.claude" -not -path "*/Library/*" -not -path "*/node_modules/*" -not -path "*/.Trash/*" 2>/dev/null)
 
 done
+
+#Zip up the DFIR_Output folder so it is easier to collect off the endpoint
+cd //tmp
+zip -r -q "//tmp/DFIR_Output_$(hostname)_$(TZ=$timeZone date +%Y-%m-%d_%H%M%S).zip" "DFIR_Output"
+echo "Collection complete. Zipped output: $(ls //tmp/DFIR_Output_*.zip)"

@@ -181,6 +181,18 @@ if ($Manufacturer -like "*Amazon EC2*") {
         #Grab the PowerShell logs for the user
         Copy-Item "D:\Users\${d_drive_users}\AppData\Roaming\Microsoft\Windows\PowerShell\PSReadLine\ConsoleHost_history.txt" "C:\Temp\DFIR_Output\User_level_files\${d_drive_users}_files\${d_drive_users} powershell_logs.txt"
         Copy-Item "D:\Users\${d_drive_users}\AppData\Roaming\Microsoft\Windows\PowerShell\PSReadLine\Visual Studio Code Host_history.txt" "C:\Temp\DFIR_Output\User_level_files\${d_drive_users}_files\${d_drive_users} powershell_logs.txt"
+
+        #Copy over the global .claude folder (Claude Code config, session history, etc.)
+        New-Item -Path "C:\Temp\DFIR_Output\User_level_files\${d_drive_users}_files" -Name "${d_drive_users}_claude_folders" -ItemType "directory";
+        Copy-Item "D:\Users\${d_drive_users}\.claude" -Destination "C:\Temp\DFIR_Output\User_level_files\${d_drive_users}_files\${d_drive_users}_claude_folders\global_claude" -Recurse -Force
+
+        #Find and copy over any project-level .claude folders in the user's folder
+        Get-ChildItem "D:\Users\${d_drive_users}" -Recurse -Directory -Filter ".claude" -Force -ErrorAction SilentlyContinue |
+            Where-Object { $_.FullName -ne "D:\Users\${d_drive_users}\.claude" -and $_.FullName -notmatch '\\(AppData|node_modules)\\' } |
+            ForEach-Object {
+                $projectName = ($_.Parent.FullName -replace "^D:\\Users\\${d_drive_users}\\", '' -replace '\\', '_')
+                Copy-Item $_.FullName -Destination "C:\Temp\DFIR_Output\User_level_files\${d_drive_users}_files\${d_drive_users}_claude_folders\project_${projectName}_claude" -Recurse -Force
+            }
     }
 
 }
@@ -222,6 +234,27 @@ else {
         #Grab the PowerShell logs for the user
         Copy-Item "C:\Users\${c_drive_users}\AppData\Roaming\Microsoft\Windows\PowerShell\PSReadLine\ConsoleHost_history.txt" "C:\Temp\DFIR_Output\User_level_files\${c_drive_users}_files\${c_drive_users} powershell_logs.txt"
         Copy-Item "C:\Users\${c_drive_users}\AppData\Roaming\Microsoft\Windows\PowerShell\PSReadLine\Visual Studio Code Host_history.txt" "C:\Temp\DFIR_Output\User_level_files\${c_drive_users}_files\${c_drive_users} powershell_logs.txt"
+
+        #Copy over the global .claude folder (Claude Code config, session history, etc.)
+        New-Item -Path "C:\Temp\DFIR_Output\User_level_files\${c_drive_users}_files" -Name "${c_drive_users}_claude_folders" -ItemType "directory";
+        Copy-Item "C:\Users\${c_drive_users}\.claude" -Destination "C:\Temp\DFIR_Output\User_level_files\${c_drive_users}_files\${c_drive_users}_claude_folders\global_claude" -Recurse -Force
+
+        #Find and copy over any project-level .claude folders in the user's folder
+        Get-ChildItem "C:\Users\${c_drive_users}" -Recurse -Directory -Filter ".claude" -Force -ErrorAction SilentlyContinue |
+            Where-Object { $_.FullName -ne "C:\Users\${c_drive_users}\.claude" -and $_.FullName -notmatch '\\(AppData|node_modules)\\' } |
+            ForEach-Object {
+                $projectName = ($_.Parent.FullName -replace "^C:\\Users\\${c_drive_users}\\", '' -replace '\\', '_')
+                Copy-Item $_.FullName -Destination "C:\Temp\DFIR_Output\User_level_files\${c_drive_users}_files\${c_drive_users}_claude_folders\project_${projectName}_claude" -Recurse -Force
+            }
     }
 
   }
+
+#==========================================
+# Zipping up the output folder
+#==========================================
+
+#Zip up the DFIR_Output folder so it is easier to collect off the endpoint
+$dateStamp = (Get-Date).ToUniversalTime().ToString("yyyy-MM-dd_HHmmss")
+Compress-Archive -Path "C:\Temp\DFIR_Output" -DestinationPath "C:\Temp\DFIR_Output_${env:COMPUTERNAME}_${dateStamp}.zip" -Force
+Write-Host "Collection complete. Zipped output: C:\Temp\DFIR_Output_${env:COMPUTERNAME}_${dateStamp}.zip"
