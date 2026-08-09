@@ -41,6 +41,37 @@ ls -l /usr/local/bin >> $outputDir/installed_apps.txt
 echo -e "\nDate of Artifact Collection:" >> $outputDir/installed_apps.txt
 TZ=$timeZone Date >> $outputDir/installed_apps.txt
 
+#Collect a full application inventory with version, code-signing publisher and
+#last-modified date (JSON). The ls listing above only has bundle names; this is
+#what fills the Version/Publisher/Date columns in the report.
+system_profiler -json SPApplicationsDataType > $outputDir/installed_apps_full.json 2>/dev/null
+
+#Collect Homebrew packages (formulae + casks) if Homebrew is installed.
+#Homebrew lives outside /Applications (usually /opt/homebrew), so it is missed by
+#the listing above. brew refuses to run as root, so when the script runs under
+#sudo we run brew as the owner of the Homebrew prefix instead.
+brewBin=""
+for candidate in /opt/homebrew/bin/brew /usr/local/bin/brew; do
+    if [ -x "$candidate" ]; then brewBin="$candidate"; break; fi
+done
+if [ -n "$brewBin" ]; then
+    brewOwner=$(stat -f '%Su' "$brewBin")
+    brewHome=$(eval echo "~$brewOwner")   # owner's home; brew needs a writable HOME
+    #HOME must point at the brew owner's home. Under sudo it defaults to /var/root,
+    #which brew cannot write its cache to, so the listing comes back empty.
+    if [ "$(id -u)" -eq 0 ] && [ "$brewOwner" != "root" ]; then
+        runBrew() { sudo -u "$brewOwner" env HOME="$brewHome" "$brewBin" "$@"; }
+    else
+        runBrew() { env HOME="$brewHome" "$brewBin" "$@"; }
+    fi
+    echo "==> Formulae" > $outputDir/homebrew_packages.txt
+    runBrew list --formula --versions >> $outputDir/homebrew_packages.txt 2>/dev/null
+    echo "==> Casks" >> $outputDir/homebrew_packages.txt
+    runBrew list --cask --versions >> $outputDir/homebrew_packages.txt 2>/dev/null
+    echo -e "\nDate of Artifact Collection:" >> $outputDir/homebrew_packages.txt
+    TZ=$timeZone Date >> $outputDir/homebrew_packages.txt
+fi
+
 #Collect Application install history
 system_profiler SPInstallHistoryDataType > $outputDir/installed_apps_history.txt
 echo -e "\nDate of Artifact Collection:" >> $outputDir/installed_apps_history.txt
@@ -168,6 +199,42 @@ for user in "${listOfUsersArray[@]}"; do
         mkdir -p "$claudeDest"
         cp -R "$claudeDir" "$claudeDest/project_"$projectName"_claude"
     done < <(find "//Users/$user" -maxdepth 6 -type d -name ".claude" -not -path "//Users/$user/.claude" -not -path "*/Library/*" -not -path "*/node_modules/*" -not -path "*/.Trash/*" 2>/dev/null)
+
+    #Copy over Claude Desktop artifacts (config, extensions, logs, local-agent sessions).
+    #Credential material (Cookies, buddy-tokens.json, Local State) is deliberately NOT
+    #collected; oauth/token/secret values inside config.json are redacted on the way out.
+    claudeDesktopSrc="//Users/"$user"/Library/Application Support/Claude"
+    if [ -d "$claudeDesktopSrc" ]; then
+        cdDest="$outputDir/User_level_files/"$user"_files/"$user"_claude_desktop"
+        mkdir -p "$cdDest"
+
+        #MCP server config (no secrets) - copied as-is
+        cp "$claudeDesktopSrc/claude_desktop_config.json" "$cdDest/claude_desktop_config.json" 2>/dev/null
+
+        #App preferences - copied, then any oauth/token/secret value redacted in place.
+        #The regex is key-name driven so it redacts at any nesting depth, preserving
+        #non-secret fields (account UUID, timestamps, version, settings).
+        if [ -f "$claudeDesktopSrc/config.json" ]; then
+            cp "$claudeDesktopSrc/config.json" "$cdDest/config.json"
+            perl -0777 -i -pe 's/("[^"]*(?:token|secret|api[_-]?key|apikey|cookie|password|passwd|bearer|credential|oauth|refresh|session)[^"]*"\s*:\s*)"[^"]*"/$1"<REDACTED>"/ig' "$cdDest/config.json" 2>/dev/null
+        fi
+
+        #Installed desktop extensions (DXT) metadata + payloads
+        cp "$claudeDesktopSrc/extensions-installations.json" "$cdDest/" 2>/dev/null
+        cp "$claudeDesktopSrc/extensions-blocklist.json" "$cdDest/" 2>/dev/null
+        cp -R "$claudeDesktopSrc/Claude Extensions" "$cdDest/Claude_Extensions" 2>/dev/null
+        cp -R "$claudeDesktopSrc/Claude Extensions Settings" "$cdDest/Claude_Extensions_Settings" 2>/dev/null
+
+        #Local agent / cowork session history
+        cp -R "$claudeDesktopSrc/local-agent-mode-sessions" "$cdDest/local-agent-mode-sessions" 2>/dev/null
+        cp -R "$claudeDesktopSrc/claude-code-sessions" "$cdDest/claude-code-sessions" 2>/dev/null
+
+        #Application + MCP server logs
+        if [ -d "//Users/"$user"/Library/Logs/Claude" ]; then
+            mkdir -p "$cdDest/logs"
+            cp -R "//Users/"$user"/Library/Logs/Claude/" "$cdDest/logs/" 2>/dev/null
+        fi
+    fi
 
 done
 
