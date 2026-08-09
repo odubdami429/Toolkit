@@ -7,6 +7,28 @@
 $ErrorActionPreference = 'SilentlyContinue'
 
 
+#Recursively redact any property whose NAME looks like a credential (oauth token,
+#secret, api key, cookie, password, bearer, session/refresh token) at any nesting
+#depth. Non-secret fields (account UUID, timestamps, version, settings) are kept.
+function Redact-Secrets {
+    param($obj)
+    $pattern = '(?i)token|secret|api[_-]?key|apikey|cookie|password|passwd|bearer|credential|oauth|refresh|session'
+    if ($obj -is [System.Management.Automation.PSCustomObject]) {
+        foreach ($prop in @($obj.PSObject.Properties)) {
+            if ($prop.Name -match $pattern) {
+                $prop.Value = "<REDACTED>"
+            }
+            elseif ($prop.Value -is [System.Management.Automation.PSCustomObject] -or $prop.Value -is [System.Object[]]) {
+                Redact-Secrets $prop.Value
+            }
+        }
+    }
+    elseif ($obj -is [System.Object[]]) {
+        foreach ($item in $obj) { Redact-Secrets $item }
+    }
+}
+
+
 
 #Output folder named after the endpoint and the UTC date of collection
 $dateStamp = (Get-Date).ToUniversalTime().ToString("yyyy_MM_dd")
@@ -202,6 +224,44 @@ if ($Manufacturer -like "*Amazon EC2*") {
                 New-Item -Path $claudeDest -ItemType "directory" -Force;
                 Copy-Item $_.FullName -Destination "$claudeDest\project_${projectName}_claude" -Recurse -Force
             }
+
+        #Copy over Claude Desktop artifacts (config, extensions, logs, local-agent sessions).
+        #Credential material (Cookies, buddy-tokens.json, Local State) is deliberately NOT
+        #collected; oauth/token/secret values inside config.json are redacted on the way out.
+        $claudeDesktopSrc = "D:\Users\${d_drive_users}\AppData\Roaming\Claude"
+        if (Test-Path $claudeDesktopSrc) {
+            $cdDest = "$outputDir\User_level_files\${d_drive_users}_files\${d_drive_users}_claude_desktop"
+            New-Item -Path $cdDest -ItemType "directory" -Force;
+
+            #MCP server config (no secrets)
+            Copy-Item "$claudeDesktopSrc\claude_desktop_config.json" "$cdDest\claude_desktop_config.json" -Force
+
+            #App preferences - copied, then oauth/token/secret values redacted at any depth
+            if (Test-Path "$claudeDesktopSrc\config.json") {
+                try {
+                    $cfg = Get-Content "$claudeDesktopSrc\config.json" -Raw | ConvertFrom-Json
+                    Redact-Secrets $cfg
+                    $cfg | ConvertTo-Json -Depth 20 | Out-File "$cdDest\config.json"
+                } catch {
+                    #If parsing fails, skip config.json rather than risk copying tokens
+                }
+            }
+
+            #Installed desktop extensions metadata + payloads
+            Copy-Item "$claudeDesktopSrc\extensions-installations.json" "$cdDest\" -Force
+            Copy-Item "$claudeDesktopSrc\extensions-blocklist.json" "$cdDest\" -Force
+            Copy-Item "$claudeDesktopSrc\Claude Extensions" "$cdDest\Claude_Extensions" -Recurse -Force
+            Copy-Item "$claudeDesktopSrc\Claude Extensions Settings" "$cdDest\Claude_Extensions_Settings" -Recurse -Force
+
+            #Local agent / cowork session history
+            Copy-Item "$claudeDesktopSrc\local-agent-mode-sessions" "$cdDest\local-agent-mode-sessions" -Recurse -Force
+            Copy-Item "$claudeDesktopSrc\claude-code-sessions" "$cdDest\claude-code-sessions" -Recurse -Force
+
+            #Application + MCP server logs
+            if (Test-Path "$claudeDesktopSrc\logs") {
+                Copy-Item "$claudeDesktopSrc\logs" "$cdDest\logs" -Recurse -Force
+            }
+        }
     }
 
 }
@@ -260,6 +320,44 @@ else {
                 New-Item -Path $claudeDest -ItemType "directory" -Force;
                 Copy-Item $_.FullName -Destination "$claudeDest\project_${projectName}_claude" -Recurse -Force
             }
+
+        #Copy over Claude Desktop artifacts (config, extensions, logs, local-agent sessions).
+        #Credential material (Cookies, buddy-tokens.json, Local State) is deliberately NOT
+        #collected; oauth/token/secret values inside config.json are redacted on the way out.
+        $claudeDesktopSrc = "C:\Users\${c_drive_users}\AppData\Roaming\Claude"
+        if (Test-Path $claudeDesktopSrc) {
+            $cdDest = "$outputDir\User_level_files\${c_drive_users}_files\${c_drive_users}_claude_desktop"
+            New-Item -Path $cdDest -ItemType "directory" -Force;
+
+            #MCP server config (no secrets)
+            Copy-Item "$claudeDesktopSrc\claude_desktop_config.json" "$cdDest\claude_desktop_config.json" -Force
+
+            #App preferences - copied, then oauth/token/secret values redacted at any depth
+            if (Test-Path "$claudeDesktopSrc\config.json") {
+                try {
+                    $cfg = Get-Content "$claudeDesktopSrc\config.json" -Raw | ConvertFrom-Json
+                    Redact-Secrets $cfg
+                    $cfg | ConvertTo-Json -Depth 20 | Out-File "$cdDest\config.json"
+                } catch {
+                    #If parsing fails, skip config.json rather than risk copying tokens
+                }
+            }
+
+            #Installed desktop extensions metadata + payloads
+            Copy-Item "$claudeDesktopSrc\extensions-installations.json" "$cdDest\" -Force
+            Copy-Item "$claudeDesktopSrc\extensions-blocklist.json" "$cdDest\" -Force
+            Copy-Item "$claudeDesktopSrc\Claude Extensions" "$cdDest\Claude_Extensions" -Recurse -Force
+            Copy-Item "$claudeDesktopSrc\Claude Extensions Settings" "$cdDest\Claude_Extensions_Settings" -Recurse -Force
+
+            #Local agent / cowork session history
+            Copy-Item "$claudeDesktopSrc\local-agent-mode-sessions" "$cdDest\local-agent-mode-sessions" -Recurse -Force
+            Copy-Item "$claudeDesktopSrc\claude-code-sessions" "$cdDest\claude-code-sessions" -Recurse -Force
+
+            #Application + MCP server logs
+            if (Test-Path "$claudeDesktopSrc\logs") {
+                Copy-Item "$claudeDesktopSrc\logs" "$cdDest\logs" -Recurse -Force
+            }
+        }
     }
 
   }
