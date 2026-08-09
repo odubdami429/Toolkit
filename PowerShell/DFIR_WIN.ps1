@@ -1,6 +1,6 @@
 #======================================================================================
 #This script collects various DFIR artifact from a Windows Endpoint by saving the output of various commands to a txt file
-#Once the the script is done the output files will be placed in C:\Temp\DFIR_Output
+#Once the the script is done the output files will be placed in $outputDir
 #======================================================================================
 
 #Allows the script to continue even if there are errors
@@ -8,8 +8,12 @@ $ErrorActionPreference = 'SilentlyContinue'
 
 
 
+#Output folder named after the endpoint and the UTC date of collection
+$dateStamp = (Get-Date).ToUniversalTime().ToString("yyyy_MM_dd")
+$outputDir = "C:\Temp\DFIR_Output_$($env:COMPUTERNAME)_$dateStamp"
+
 #Creates a folder that will contain all the artifacts
-New-Item -Path "C:\Temp" -Name "DFIR_Output" -ItemType "directory";
+New-Item -Path $outputDir -ItemType "directory";
  
 
 #==========================================
@@ -17,20 +21,20 @@ New-Item -Path "C:\Temp" -Name "DFIR_Output" -ItemType "directory";
 #==========================================
 
 #Collect User and System information
-systeminfo | Out-File "C:\Temp\DFIR_Output\system_info.txt";
-"`n`nDate of Artifact Collection in UTC Time:" | Out-File -append "C:\Temp\DFIR_Output\system_info.txt";
-(Get-Date).ToUniversalTime() | Out-File -append "C:\Temp\DFIR_Output\system_info.txt";
+systeminfo | Out-File "$outputDir\system_info.txt";
+"`n`nDate of Artifact Collection in UTC Time:" | Out-File -append "$outputDir\system_info.txt";
+(Get-Date).ToUniversalTime() | Out-File -append "$outputDir\system_info.txt";
 
 #Collect list of Running Processes
-tasklist /v | Out-File "C:\Temp\DFIR_Output\running_processes.txt";
-"`n`nDate of Artifact Collection in UTC Time:" | Out-File -append "C:\Temp\DFIR_Output\running_processes.txt";
-(Get-Date).ToUniversalTime() | Out-File -append "C:\Temp\DFIR_Output\running_processes.txt"
+tasklist /v | Out-File "$outputDir\running_processes.txt";
+"`n`nDate of Artifact Collection in UTC Time:" | Out-File -append "$outputDir\running_processes.txt";
+(Get-Date).ToUniversalTime() | Out-File -append "$outputDir\running_processes.txt"
 
 
 #Collect list of scheduled task
-Get-ChildItem C:\Windows\System32\Tasks | Out-File "C:\Temp\DFIR_Output\scheduled_task.txt";
-"`n`nDate of Artifact Collection in UTC Time:" | Out-File -append "C:\Temp\DFIR_Output\scheduled_task.txt";
-(Get-Date).ToUniversalTime() | Out-File -append "C:\Temp\DFIR_Output\scheduled_task.txt"
+Get-ChildItem C:\Windows\System32\Tasks | Out-File "$outputDir\scheduled_task.txt";
+"`n`nDate of Artifact Collection in UTC Time:" | Out-File -append "$outputDir\scheduled_task.txt";
+(Get-Date).ToUniversalTime() | Out-File -append "$outputDir\scheduled_task.txt"
 
 
 #Collect list of system-level installed apps 
@@ -39,9 +43,9 @@ Get-ItemProperty `
   HKLM:\Software\Wow6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*, `
   HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\* `
 | Select-Object DisplayName, DisplayVersion, Publisher, InstallDate `
-| Export-Csv -Path "C:\Temp\DFIR_Output\system_level_installed_apps.csv" -NoTypeInformation
-"`n`nDate of Artifact Collection in UTC Time:" | Out-File -append "C:\Temp\DFIR_Output\system_level_installed_apps.csv";
-(Get-Date).ToUniversalTime() | Out-File -append "C:\Temp\DFIR_Output\system_level_installed_apps.csv"
+| Export-Csv -Path "$outputDir\system_level_installed_apps.csv" -NoTypeInformation
+"`n`nDate of Artifact Collection in UTC Time:" | Out-File -append "$outputDir\system_level_installed_apps.csv";
+(Get-Date).ToUniversalTime() | Out-File -append "$outputDir\system_level_installed_apps.csv"
 
 
 #Collect list of user-level installed apps 
@@ -75,9 +79,9 @@ foreach ($sid in $allUserSIDs) {
 }
 
 # Now export all collected entries to CSV
-$allUninstalls | Export-Csv -Path "C:\Temp\DFIR_Output\user_level_installed_apps.csv" -NoTypeInformation
-"`n`nDate of Artifact Collection in UTC Time:" | Out-File -append "C:\Temp\DFIR_Output\user_level_installed_apps.csv";
-(Get-Date).ToUniversalTime() | Out-File -append "C:\Temp\DFIR_Output\user_level_installed_apps.csv"
+$allUninstalls | Export-Csv -Path "$outputDir\user_level_installed_apps.csv" -NoTypeInformation
+"`n`nDate of Artifact Collection in UTC Time:" | Out-File -append "$outputDir\user_level_installed_apps.csv";
+(Get-Date).ToUniversalTime() | Out-File -append "$outputDir\user_level_installed_apps.csv"
 
 
 #==========================================
@@ -85,15 +89,15 @@ $allUninstalls | Export-Csv -Path "C:\Temp\DFIR_Output\user_level_installed_apps
 #==========================================
 
 #Collect list of UDP connections
-Get-NetUDPEndpoint  | Select-Object LocalAddress,LocalPort,CreationTime,OwningProcess,@{Name="Process";Expression={(Get-Process -Id $_.OwningProcess).ProcessName}} | ft -auto | Out-File "C:\Temp\DFIR_Output\udp_connections.txt";
-"`n`nDate of Artifact Collection in UTC Time:" | Out-File -append "C:\Temp\DFIR_Output\udp_connections.txt";
-(Get-Date).ToUniversalTime() | Out-File -append "C:\Temp\DFIR_Output\udp_connections.txt"
+Get-NetUDPEndpoint  | Select-Object LocalAddress,LocalPort,CreationTime,OwningProcess,@{Name="Process";Expression={(Get-Process -Id $_.OwningProcess).ProcessName}} | ft -auto | Out-File "$outputDir\udp_connections.txt";
+"`n`nDate of Artifact Collection in UTC Time:" | Out-File -append "$outputDir\udp_connections.txt";
+(Get-Date).ToUniversalTime() | Out-File -append "$outputDir\udp_connections.txt"
 
 
 #Collect list of TCP connections
-Get-NetTCPConnection |  select-object LocalAddress,LocalPort,RemoteAddress,RemotePort,State,CreationTime,OwningProcess, @{Name="Process";Expression={(Get-Process -Id $_.OwningProcess).ProcessName}} | ft -auto | Out-File "C:\Temp\DFIR_Output\tcp_connections.txt";
-"`n`nDate of Artifact Collection in UTC Time:" | Out-File -append "C:\Temp\DFIR_Output\tcp_connections.txt";
-(Get-Date).ToUniversalTime() | Out-File -append "C:\Temp\DFIR_Output\tcp_connections.txt"
+Get-NetTCPConnection |  select-object LocalAddress,LocalPort,RemoteAddress,RemotePort,State,CreationTime,OwningProcess, @{Name="Process";Expression={(Get-Process -Id $_.OwningProcess).ProcessName}} | ft -auto | Out-File "$outputDir\tcp_connections.txt";
+"`n`nDate of Artifact Collection in UTC Time:" | Out-File -append "$outputDir\tcp_connections.txt";
+(Get-Date).ToUniversalTime() | Out-File -append "$outputDir\tcp_connections.txt"
 
 
 #Collect list of all firewall rules on the system
@@ -120,9 +124,9 @@ $fwRules = Get-NetFirewallRule | ForEach-Object {
 }
 
 # Export firewall rules to a CSV file
-$fwRules | Export-Csv -Path "C:\Temp\DFIR_Output\firewall_settings.csv" -NoTypeInformation
-"`n`nDate of Artifact Collection in UTC Time:" | Out-File -append "C:\Temp\DFIR_Output\firewall_settings.csv";
-(Get-Date).ToUniversalTime() | Out-File -append "C:\Temp\DFIR_Output\firewall_settings.csv"
+$fwRules | Export-Csv -Path "$outputDir\firewall_settings.csv" -NoTypeInformation
+"`n`nDate of Artifact Collection in UTC Time:" | Out-File -append "$outputDir\firewall_settings.csv";
+(Get-Date).ToUniversalTime() | Out-File -append "$outputDir\firewall_settings.csv"
 
 
 #==========================================
@@ -130,17 +134,17 @@ $fwRules | Export-Csv -Path "C:\Temp\DFIR_Output\firewall_settings.csv" -NoTypeI
 #==========================================
 
 #Creates a folder that will contain all copied windows event logs
-New-Item -Path "C:\Temp\DFIR_Output\" -Name "windows_logs" -ItemType "directory";
+New-Item -Path "$outputDir\" -Name "windows_logs" -ItemType "directory";
 
 #Copy over the Security, Systems and Application windows event logs 
-Copy-Item "C:\Windows\System32\winevt\Logs\Security.evtx" -Destination "C:\Temp\DFIR_Output\windows_logs"
-Copy-Item "C:\Windows\System32\winevt\Logs\System.evtx" -Destination "C:\Temp\DFIR_Output\windows_logs"
-Copy-Item "C:\Windows\System32\winevt\Logs\Application.evtx" -Destination "C:\Temp\DFIR_Output\windows_logs"
+Copy-Item "C:\Windows\System32\winevt\Logs\Security.evtx" -Destination "$outputDir\windows_logs"
+Copy-Item "C:\Windows\System32\winevt\Logs\System.evtx" -Destination "$outputDir\windows_logs"
+Copy-Item "C:\Windows\System32\winevt\Logs\Application.evtx" -Destination "$outputDir\windows_logs"
 
 
 
 #Creates a folder that will contain all copied browser history files
-New-Item -Path "C:\Temp\DFIR_Output\" -Name "User_level_files" -ItemType "directory";
+New-Item -Path "$outputDir\" -Name "User_level_files" -ItemType "directory";
 
 $Manufacturer = (Get-CimInstance win32_computersystem -Property Manufacturer).Manufacturer #Addding the manufacturer of a device to a variable
 Write-Host $Manufacturer
@@ -157,41 +161,46 @@ if ($Manufacturer -like "*Amazon EC2*") {
     foreach ($d_drive_users in $d_drive_users) {
 
         #Creates a user folder that will contain all copied powershell and browser history files
-        New-Item -Path "C:\Temp\DFIR_Output\User_level_files\" -Name "${d_drive_users}_files" -ItemType "directory";
+        New-Item -Path "$outputDir\User_level_files\" -Name "${d_drive_users}_files" -ItemType "directory";
 
         #Collect list of all files and folders in the user folder
-        Get-ChildItem D:\Users\$d_drive_users -Recurse | Out-File "C:\Temp\DFIR_Output\User_level_files\${d_drive_users}_files\${d_drive_users}_All_files.txt";
+        Get-ChildItem D:\Users\$d_drive_users -Recurse | Out-File "$outputDir\User_level_files\${d_drive_users}_files\${d_drive_users}_All_files.txt";
 
          #Collect list of all files and folders in the user's documents folder
-        Get-ChildItem D:\Users\$d_drive_users\Documents -Recurse | Out-File "C:\Temp\DFIR_Output\User_level_files\${d_drive_users}_files\${d_drive_users}_Documents_files.txt";
+        Get-ChildItem D:\Users\$d_drive_users\Documents -Recurse | Out-File "$outputDir\User_level_files\${d_drive_users}_files\${d_drive_users}_Documents_files.txt";
 
         #Collect list of all files and folders in the user's downloads folder
-        Get-ChildItem D:\Users\$d_drive_users\Downloads -Recurse | Out-File "C:\Temp\DFIR_Output\User_level_files\${d_drive_users}_files\${d_drive_users}_Downloads_files.txt";
+        Get-ChildItem D:\Users\$d_drive_users\Downloads -Recurse | Out-File "$outputDir\User_level_files\${d_drive_users}_files\${d_drive_users}_Downloads_files.txt";
 
          #Grab the Chrome and Edge history files for D drive users
-        Copy-Item "D:\Users\${d_drive_users}\AppData\Local\Google\Chrome\User Data\Default\History" "C:\Temp\DFIR_Output\User_level_files\${d_drive_users}_files\${d_drive_users}_Chrome_Default_History"
-        Copy-Item "D:\Users\${d_drive_users}\AppData\Local\Microsoft\Edge\User Data\Default\History" "C:\Temp\DFIR_Output\User_level_files\${d_drive_users}_files\${d_drive_users}_Edge_Default_History"
+        Copy-Item "D:\Users\${d_drive_users}\AppData\Local\Google\Chrome\User Data\Default\History" "$outputDir\User_level_files\${d_drive_users}_files\${d_drive_users}_Chrome_Default_History.db"
+        Copy-Item "D:\Users\${d_drive_users}\AppData\Local\Microsoft\Edge\User Data\Default\History" "$outputDir\User_level_files\${d_drive_users}_files\${d_drive_users}_Edge_Default_History.db"
         for ($profileNumber = 1; $profileNumber -le 100; $profileNumber++) {
 
-            Copy-Item "D:\Users\${d_drive_users}\AppData\Local\Google\Chrome\User Data\Profile ${profileNumber}\History" "C:\Temp\DFIR_Output\User_level_files\${d_drive_users}_files\${d_drive_users}_Chrome_Profile_${profileNumber}_History"
-            Copy-Item "D:\Users\${d_drive_users}\AppData\Local\Microsoft\Edge\User Data\Profile ${profileNumber}\History" "C:\Temp\DFIR_Output\User_level_files\${d_drive_users}_files\${d_drive_users}_Edge_Profile_${profileNumber}_History"
+            Copy-Item "D:\Users\${d_drive_users}\AppData\Local\Google\Chrome\User Data\Profile ${profileNumber}\History" "$outputDir\User_level_files\${d_drive_users}_files\${d_drive_users}_Chrome_Profile_${profileNumber}_History.db"
+            Copy-Item "D:\Users\${d_drive_users}\AppData\Local\Microsoft\Edge\User Data\Profile ${profileNumber}\History" "$outputDir\User_level_files\${d_drive_users}_files\${d_drive_users}_Edge_Profile_${profileNumber}_History.db"
         }
 
 
         #Grab the PowerShell logs for the user
-        Copy-Item "D:\Users\${d_drive_users}\AppData\Roaming\Microsoft\Windows\PowerShell\PSReadLine\ConsoleHost_history.txt" "C:\Temp\DFIR_Output\User_level_files\${d_drive_users}_files\${d_drive_users} powershell_logs.txt"
-        Copy-Item "D:\Users\${d_drive_users}\AppData\Roaming\Microsoft\Windows\PowerShell\PSReadLine\Visual Studio Code Host_history.txt" "C:\Temp\DFIR_Output\User_level_files\${d_drive_users}_files\${d_drive_users} powershell_logs.txt"
+        Copy-Item "D:\Users\${d_drive_users}\AppData\Roaming\Microsoft\Windows\PowerShell\PSReadLine\ConsoleHost_history.txt" "$outputDir\User_level_files\${d_drive_users}_files\${d_drive_users} powershell_logs.txt"
+        Copy-Item "D:\Users\${d_drive_users}\AppData\Roaming\Microsoft\Windows\PowerShell\PSReadLine\Visual Studio Code Host_history.txt" "$outputDir\User_level_files\${d_drive_users}_files\${d_drive_users} powershell_logs.txt"
 
         #Copy over the global .claude folder (Claude Code config, session history, etc.)
-        New-Item -Path "C:\Temp\DFIR_Output\User_level_files\${d_drive_users}_files" -Name "${d_drive_users}_claude_folders" -ItemType "directory";
-        Copy-Item "D:\Users\${d_drive_users}\.claude" -Destination "C:\Temp\DFIR_Output\User_level_files\${d_drive_users}_files\${d_drive_users}_claude_folders\global_claude" -Recurse -Force
+        #The claude_folders directory is only created if the user actually has .claude folders
+        $claudeDest = "$outputDir\User_level_files\${d_drive_users}_files\${d_drive_users}_claude_folders"
+        if (Test-Path "D:\Users\${d_drive_users}\.claude") {
+            New-Item -Path $claudeDest -ItemType "directory" -Force;
+            Copy-Item "D:\Users\${d_drive_users}\.claude" -Destination "$claudeDest\global_claude" -Recurse -Force
+        }
 
         #Find and copy over any project-level .claude folders in the user's folder
         Get-ChildItem "D:\Users\${d_drive_users}" -Recurse -Directory -Filter ".claude" -Force -ErrorAction SilentlyContinue |
             Where-Object { $_.FullName -ne "D:\Users\${d_drive_users}\.claude" -and $_.FullName -notmatch '\\(AppData|node_modules)\\' } |
             ForEach-Object {
                 $projectName = ($_.Parent.FullName -replace "^D:\\Users\\${d_drive_users}\\", '' -replace '\\', '_')
-                Copy-Item $_.FullName -Destination "C:\Temp\DFIR_Output\User_level_files\${d_drive_users}_files\${d_drive_users}_claude_folders\project_${projectName}_claude" -Recurse -Force
+                New-Item -Path $claudeDest -ItemType "directory" -Force;
+                Copy-Item $_.FullName -Destination "$claudeDest\project_${projectName}_claude" -Recurse -Force
             }
     }
 
@@ -201,50 +210,55 @@ else {
     Write-Host "Windows Laptop/Desktop Detected"
 
     #Collect list of Wifi Profiles
-    netsh wlan show profiles | Out-File "C:\Temp\DFIR_Output\wifi_profiles.txt";
-    "`n`nDate of Artifact Collection in UTC Time:" | Out-File -append "C:\Temp\DFIR_Output\wifi_profiles.txt"
-    (Get-Date).ToUniversalTime() | Out-File -append "C:\Temp\DFIR_Output\wifi_profiles.txt"
+    netsh wlan show profiles | Out-File "$outputDir\wifi_profiles.txt";
+    "`n`nDate of Artifact Collection in UTC Time:" | Out-File -append "$outputDir\wifi_profiles.txt"
+    (Get-Date).ToUniversalTime() | Out-File -append "$outputDir\wifi_profiles.txt"
         
     #Copy over the Powershell history log file and chrome history file for all user profiles on the endpoint
     $c_drive_users = (Get-ChildItem C:\Users).Name
     foreach ($c_drive_users in $c_drive_users) {
 
         #Creates a user folder that will contain all copied powershell and browser history files
-        New-Item -Path "C:\Temp\DFIR_Output\User_level_files\" -Name "${c_drive_users}_files" -ItemType "directory";
+        New-Item -Path "$outputDir\User_level_files\" -Name "${c_drive_users}_files" -ItemType "directory";
 
         #Collect list of all files and folders in the user folder
-        Get-ChildItem C:\Users\$c_drive_users -Recurse | Out-File "C:\Temp\DFIR_Output\User_level_files\${c_drive_users}_files\${c_drive_users}_All_files.txt";
+        Get-ChildItem C:\Users\$c_drive_users -Recurse | Out-File "$outputDir\User_level_files\${c_drive_users}_files\${c_drive_users}_All_files.txt";
 
         #Collect list of all files and folders in the user's documents folder
-        Get-ChildItem C:\Users\$c_drive_users\Documents -Recurse | Out-File "C:\Temp\DFIR_Output\User_level_files\${c_drive_users}_files\${c_drive_users}_Documents_files.txt";
+        Get-ChildItem C:\Users\$c_drive_users\Documents -Recurse | Out-File "$outputDir\User_level_files\${c_drive_users}_files\${c_drive_users}_Documents_files.txt";
 
         #Collect list of all files and folders in the user's downloads folder
-        Get-ChildItem C:\Users\$c_drive_users\Downloads -Recurse | Out-File "C:\Temp\DFIR_Output\User_level_files\${c_drive_users}_files\${c_drive_users}_Downloads_files.txt";
+        Get-ChildItem C:\Users\$c_drive_users\Downloads -Recurse | Out-File "$outputDir\User_level_files\${c_drive_users}_files\${c_drive_users}_Downloads_files.txt";
 
          #Grab the Chrome and Edge history files for C drive users
-        Copy-Item "C:\Users\${c_drive_users}\AppData\Local\Google\Chrome\User Data\Default\History" "C:\Temp\DFIR_Output\User_level_files\${c_drive_users}_files\${c_drive_users}_Chrome_Default_History"
-        Copy-Item "C:\Users\${c_drive_users}\AppData\Local\Microsoft\Edge\User Data\Default\History" "C:\Temp\DFIR_Output\User_level_files\${c_drive_users}_files\${c_drive_users}_Edge_Default_History"
+        Copy-Item "C:\Users\${c_drive_users}\AppData\Local\Google\Chrome\User Data\Default\History" "$outputDir\User_level_files\${c_drive_users}_files\${c_drive_users}_Chrome_Default_History.db"
+        Copy-Item "C:\Users\${c_drive_users}\AppData\Local\Microsoft\Edge\User Data\Default\History" "$outputDir\User_level_files\${c_drive_users}_files\${c_drive_users}_Edge_Default_History.db"
         for ($profileNumber = 1; $profileNumber -le 100; $profileNumber++) {
 
-            Copy-Item "C:\Users\${c_drive_users}\AppData\Local\Google\Chrome\User Data\Profile ${profileNumber}\History" "C:\Temp\DFIR_Output\User_level_files\${c_drive_users}_files\${c_drive_users}_Chrome_Profile_${profileNumber}_History"
-            Copy-Item "C:\Users\${c_drive_users}\AppData\Local\Microsoft\Edge\User Data\Profile ${profileNumber}\History" "C:\Temp\DFIR_Output\User_level_files\${c_drive_users}_files\${c_drive_users}_Edge_Profile_${profileNumber}_History"
+            Copy-Item "C:\Users\${c_drive_users}\AppData\Local\Google\Chrome\User Data\Profile ${profileNumber}\History" "$outputDir\User_level_files\${c_drive_users}_files\${c_drive_users}_Chrome_Profile_${profileNumber}_History.db"
+            Copy-Item "C:\Users\${c_drive_users}\AppData\Local\Microsoft\Edge\User Data\Profile ${profileNumber}\History" "$outputDir\User_level_files\${c_drive_users}_files\${c_drive_users}_Edge_Profile_${profileNumber}_History.db"
         }
 
 
         #Grab the PowerShell logs for the user
-        Copy-Item "C:\Users\${c_drive_users}\AppData\Roaming\Microsoft\Windows\PowerShell\PSReadLine\ConsoleHost_history.txt" "C:\Temp\DFIR_Output\User_level_files\${c_drive_users}_files\${c_drive_users} powershell_logs.txt"
-        Copy-Item "C:\Users\${c_drive_users}\AppData\Roaming\Microsoft\Windows\PowerShell\PSReadLine\Visual Studio Code Host_history.txt" "C:\Temp\DFIR_Output\User_level_files\${c_drive_users}_files\${c_drive_users} powershell_logs.txt"
+        Copy-Item "C:\Users\${c_drive_users}\AppData\Roaming\Microsoft\Windows\PowerShell\PSReadLine\ConsoleHost_history.txt" "$outputDir\User_level_files\${c_drive_users}_files\${c_drive_users} powershell_logs.txt"
+        Copy-Item "C:\Users\${c_drive_users}\AppData\Roaming\Microsoft\Windows\PowerShell\PSReadLine\Visual Studio Code Host_history.txt" "$outputDir\User_level_files\${c_drive_users}_files\${c_drive_users} powershell_logs.txt"
 
         #Copy over the global .claude folder (Claude Code config, session history, etc.)
-        New-Item -Path "C:\Temp\DFIR_Output\User_level_files\${c_drive_users}_files" -Name "${c_drive_users}_claude_folders" -ItemType "directory";
-        Copy-Item "C:\Users\${c_drive_users}\.claude" -Destination "C:\Temp\DFIR_Output\User_level_files\${c_drive_users}_files\${c_drive_users}_claude_folders\global_claude" -Recurse -Force
+        #The claude_folders directory is only created if the user actually has .claude folders
+        $claudeDest = "$outputDir\User_level_files\${c_drive_users}_files\${c_drive_users}_claude_folders"
+        if (Test-Path "C:\Users\${c_drive_users}\.claude") {
+            New-Item -Path $claudeDest -ItemType "directory" -Force;
+            Copy-Item "C:\Users\${c_drive_users}\.claude" -Destination "$claudeDest\global_claude" -Recurse -Force
+        }
 
         #Find and copy over any project-level .claude folders in the user's folder
         Get-ChildItem "C:\Users\${c_drive_users}" -Recurse -Directory -Filter ".claude" -Force -ErrorAction SilentlyContinue |
             Where-Object { $_.FullName -ne "C:\Users\${c_drive_users}\.claude" -and $_.FullName -notmatch '\\(AppData|node_modules)\\' } |
             ForEach-Object {
                 $projectName = ($_.Parent.FullName -replace "^C:\\Users\\${c_drive_users}\\", '' -replace '\\', '_')
-                Copy-Item $_.FullName -Destination "C:\Temp\DFIR_Output\User_level_files\${c_drive_users}_files\${c_drive_users}_claude_folders\project_${projectName}_claude" -Recurse -Force
+                New-Item -Path $claudeDest -ItemType "directory" -Force;
+                Copy-Item $_.FullName -Destination "$claudeDest\project_${projectName}_claude" -Recurse -Force
             }
     }
 
@@ -254,7 +268,19 @@ else {
 # Zipping up the output folder
 #==========================================
 
-#Zip up the DFIR_Output folder so it is easier to collect off the endpoint
-$dateStamp = (Get-Date).ToUniversalTime().ToString("yyyy-MM-dd_HHmmss")
-Compress-Archive -Path "C:\Temp\DFIR_Output" -DestinationPath "C:\Temp\DFIR_Output_${env:COMPUTERNAME}_${dateStamp}.zip" -Force
-Write-Host "Collection complete. Zipped output: C:\Temp\DFIR_Output_${env:COMPUTERNAME}_${dateStamp}.zip"
+#Zip up the output folder so it is easier to collect off the endpoint
+#Uses the .NET zip API instead of Compress-Archive because Compress-Archive writes backslash
+#path separators into the archive, which extracts as flat files on Mac/Linux
+$zipPath = "${outputDir}.zip"
+Remove-Item $zipPath -Force -ErrorAction SilentlyContinue
+Add-Type -AssemblyName System.IO.Compression.FileSystem
+[System.IO.Compression.ZipFile]::CreateFromDirectory($outputDir, $zipPath, [System.IO.Compression.CompressionLevel]::Optimal, $true)
+
+#Delete the unzipped output folder, but only if the zip was created successfully
+if (Test-Path $zipPath) {
+    Remove-Item $outputDir -Recurse -Force
+    Write-Host "Collection complete. Zipped output: $zipPath"
+}
+else {
+    Write-Host "Zipping failed - unzipped output left in: $outputDir"
+}
