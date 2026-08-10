@@ -49,7 +49,7 @@ AI prompts and AI Agent skills used for security and IT operations.
 | `Skills/recent-breach-tracker` | AI Agent skill for compiling a roundup of recent cybersecurity breaches. |
 | `Skills/security-breach-intel` | AI Agent skill for producing a deep-dive intelligence report on a specific breach. |
 | `Skills/eml-security-analyzer` | AI Agent skill for analyzing `.eml` files, raw headers, or Proofpoint TAP JSON for phishing indicators. |
-| `Skills/review-dfir-artifacts` | AI Agent skill for analyzing DFIR output from `DFIR_MAC.sh` / `DFIR_WIN.ps1` and producing a structured investigation report. |
+| `Skills/investigate-dfir-output` | AI Agent skill for parsing and risk-scoring a Windows or macOS endpoint DFIR triage package from `DFIR_MAC.sh` / `DFIR_WIN.ps1` (auto-detects platform; parses processes, persistence, network, browser history, command history, `.claude` folders, and Windows `.evtx` event logs) and producing a severity-ranked console / JSON / XLSX report. |
 | `Skills/review-ide-extension` | AI Agent skill for downloading and statically analyzing a VS Code extension for security risks; produces a risk-scored report. |
 | `Skills/review-browser-extension` | AI Agent skill for downloading and statically analyzing a Chrome or Firefox browser extension for dangerous permissions and code-level risks; produces a risk-scored report. |
 
