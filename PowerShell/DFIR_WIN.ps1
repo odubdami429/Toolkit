@@ -593,17 +593,10 @@ Invoke-Section 'zip_and_manifest' {
 
     #Delete the unzipped output folder, but only if the zip was created successfully
     if (Test-Path $zipPath) {
-        #Compute SHA256 + size and write a manifest NEXT TO the archive (survives the folder delete),
-        #then echo it so it lands in the RTR command output (item 10)
+        #Compute SHA256 + size and echo them so they land in the RTR command output (item 10).
+        #Echoed to stdout only - no sidecar file is written.
         $hash = (Get-FileHash -Path $zipPath -Algorithm SHA256).Hash
         $size = (Get-Item $zipPath).Length
-        $manifestPath = "${zipPath}.manifest.txt"
-        @(
-            "ZipFile   : $(Split-Path $zipPath -Leaf)"
-            "SizeBytes : $size"
-            "SHA256    : $hash"
-            "CreatedUtc: $((Get-Date).ToUniversalTime().ToString('o'))"
-        ) | Set-Content -LiteralPath $manifestPath -Encoding UTF8
 
         Write-Host "==== DFIR ARCHIVE MANIFEST ===="
         Write-Host "ZipFile  : $zipPath"
