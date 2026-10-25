@@ -43,7 +43,6 @@ AI prompts and AI Agent skills used for security and IT operations.
 
 | File | Description |
 |------|-------------|
-| `Incident Response AI Agent.txt` | System prompt for an AI-assisted incident response agent. |
 | `Agentic SOC Architecture/` | Org- and vendor-agnostic multi-agent SOC design: a Slack-fronted Orchestrator Agent delegating to EDR, Email Security, IDP, Brand Protection, Insider Risk, Productivity Suite and Web Security specialist agents. Each agent's file has its system prompt, tool definitions and write-action guardrails. |
 | `Skills/investigate-workspace-activity` | AI Agent skill for investigating Google Workspace activity. |
 | `Skills/pull-workspace-logs` | AI Agent skill for pulling Google Workspace logs. |
