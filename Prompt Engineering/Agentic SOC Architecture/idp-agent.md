@@ -10,10 +10,11 @@ The IDP Agent is the security team's identity specialist for the `{IDP_TENANT}` 
 
 | Entry path | Caller | What it receives | Human present? |
 |---|---|---|---|
-| Agent tool on the orchestrator | Orchestrator Agent | One self-contained `message`: the user's request verbatim, plus a framing line with the requester's chat user ID, the channel, and what the orchestrator understood the ask to be. For suspend/unsuspend it also carries the action, the exact email, and the reason. | Indirectly. A person is waiting in Slack, but the agent never talks to them. |
+| Agent tool on the orchestrator | Orchestrator Agent | One self-contained `message`: the user's request verbatim, plus a framing line with the requester's chat user ID, the channel, and what the orchestrator understood the ask to be. The person's full email verbatim (the orchestrator resolves a bare Slack user ID to an email with `lookup_slack_user` first; failing that it passes a display name) and any window in relative terms. When chaining, identifiers carried over from another specialist's reply, labelled with their source (for example the recipients the Email Security Agent says clicked a phishing link). For suspend/unsuspend it also carries the action, the exact email, the requester's name and chat user ID, and the reason. | Indirectly. A person is waiting in Slack, but the agent never talks to them. |
+| Agent tool on the Insider Risk Agent | Insider Risk Agent (its sanctioned-AI entitlement check) | One fixed read-only request per actor, with only the actor's email and no alert text, file names or verdict: "Read-only lookup for `<actor email>`: (1) the user's account status; (2) which of these groups the user is a member of: `{SANCTIONED_AI_GROUPS}`. List the exact group names that matched, or say plainly that none matched." The Insider Risk Agent treats the reply as data and counts only an ACTIVE account with an exactly named matching group as a member. | No. It runs inside alert triage, often headless. |
 | Direct chat on the agent platform | A member of the security team | Free-text questions. The platform fills in `{CHAT_USER_EMAIL}`. | Yes |
 
-The agent cannot see the Slack thread, linked tickets, or its own earlier replies. If a task says "this user" without an identifier, it returns `RESULT: insufficient_input`. It treats a framing line with a requester's chat user ID as an orchestrator delegation, and anything else as direct chat. In direct chat the requester for a write is `{CHAT_USER_EMAIL}`. The prompt is written for the agent-caller case because that case is stricter.
+The agent cannot see the Slack thread, linked tickets, or its own earlier replies. If a task says "this user" without an identifier, it returns `RESULT: insufficient_input`. It treats a framing line with a requester's chat user ID as an orchestrator delegation; a task from another specialist (the Insider Risk Agent's lookup) carries no requester and is read-only by nature; anything else is direct chat. In direct chat the requester for a write is `{CHAT_USER_EMAIL}`. The prompt is written for the agent-caller case because that case is stricter. This is the one place in the architecture where a specialist calls another specialist; it is a read-only lookup, and the Insider Risk Agent never asks the IDP Agent to change anything.
 
 ## Tools
 
@@ -33,6 +34,8 @@ All five tools share these patterns:
 - **Global error handler.** It returns `status: error` with `http_status`, `idp_error_code`, `failed_block`, a `hint` (400/401/403/404/429/5xx), and a `next_step` saying to state nothing about the subject.
 - **Input cleaning.** It strips Slack/email decoration (`<…>`, quotes, `mailto:`, trailing punctuation). It rejects placeholder values (`string`, `null`, `test`, `example`, …), arrays, values over 256 characters, and quotes or backslashes. A wrong-kind object id (for example a group id passed to the user tool) is refused by name, with a pointer to the right tool.
 - **Output compaction.** Fields are allowlisted, nulls are pruned, and the key sets of `counts` / `query` / `aggregates` are always kept intact, so an empty `event_types: []` is kept rather than dropped.
+- **`candidates` array.** `idp_get_user`, `idp_get_group` and `idp_get_app` return `candidates[]` on `ambiguous`. `idp_search_logs` and `idp_set_user_suspension` put the candidates only in `message`.
+- **Known gap in the read tools.** The agent platform can leave a REST block "green" with the IdP's error object as its data. The write tool detects this and fails closed; the four read tools do not (they treat any non-list data as an empty list), so the same failure could surface as a false `not_found` or as zero events (`no_data`) instead of `error`. Port the write tool's error-body check to the read tools if your platform behaves this way.
 
 #### `idp_get_user`
 | Param | Required | Notes |
@@ -60,7 +63,7 @@ Guardrails in the tool:
 
 Returns:
 - `group`: id, name, description, `type` (native vs sourced from another system), source app id, timestamps, and any access-review metadata in the profile.
-- `counts`: `members_total` (from the IdP's own stats), `members_returned`, `members_truncated`, `apps_total`, `apps_returned`, `apps_truncated`, `non_active_members`.
+- `counts`: `members_total` (from the IdP's own stats), `members_returned`, `members_truncated`, `apps_total`, `apps_returned`, `apps_truncated`, `group_push_mappings`, `non_active_members`.
 - `members[]` (id, login, name, title, department, manager, status, lastLogin) and `apps[]`.
 
 Guardrails in the tool:
@@ -71,7 +74,7 @@ Guardrails in the tool:
 | Param | Required | Notes |
 |---|---|---|
 | `app` | yes | A dashboard label, a fragment of one, or the IdP app object id. The label often differs from the vendor's product name. |
-| `max_users` | no | Default 50, clamped 1–200. |
+| `max_users` | no (tool) | Default 50, clamped 1–200. Group assignments are returned in full regardless. The reference registration declares it **required**, which forces the model to pass a value on every call; declare it optional. |
 
 Returns:
 - `app`: label, internal name, status, sign-on mode, `features` (non-empty means provisioning is on), self-service, hidden, username template, admin notes.
@@ -143,7 +146,8 @@ None are attached in the reference build. If you attach `web_search` / `fetch_we
 
 ### Registration notes
 
-- Originally built on SOAR AI Agents. Each tool is a workflow handler with a 120 s timeout.
+- Originally built on SOAR AI Agents. Reference agent settings: the strongest available model, temperature `0.3`, max iterations `50`, extended thinking off, no MCP servers, only these five tools.
+- Each tool is a workflow handler with a 120 s timeout.
 - `idp_get_user`, `idp_get_group`, `idp_get_app` and `idp_search_logs`: human approval **off**. They are read-only and there is nothing to approve.
 - `idp_set_user_suspension`: human approval **off**. Most runs are headless from Slack via the orchestrator, where a platform human-approval prompt times out with nobody to answer it. The controls are the orchestrator's `{AUTHORIZED_ACTION_REQUESTERS}` list, this prompt's explicit-request rule, and the tool's guardrails. If the agent is only ever used in direct chat, turn the platform human-approval setting on.
 - Declare only the canonical params listed above. Undeclared params are unreachable by the model. Aliases (`email`/`login`/`user_id`, `group_name`/`name`, `label`/`app_name`, `hours`/`actor`) are accepted by the tools but should not be declared.
@@ -151,7 +155,7 @@ None are attached in the reference build. If you attach `web_search` / `fetch_we
 - Do **not** declare `since` / `until` / `start_date` / `end_date` / `start_time` / `end_time` / `date` on `idp_search_logs`.
 - Tool names on the agent must match the names used in the prompt exactly.
 - Updating a deployed workflow: edit its blocks in place. Re-importing creates a new workflow id, and the agent binding keeps calling the old one.
-- On the orchestrator, register this agent as an agent tool with a description that says it can suspend/unsuspend when a named person asks. A stale "read-only" description will make the orchestrator refuse to route suspensions.
+- Register this agent as an agent tool (one `message` param, timeout 30 min, human approval off) on the orchestrator **and** on the Insider Risk Agent. On the orchestrator, the description must say it can suspend/unsuspend when a named person asks; a stale "read-only" description makes the orchestrator refuse to route suspensions (the reference exports still carry that stale text on both callers, so fix it when you copy them). On the Insider Risk Agent a read-only description is fine, because that agent only uses it for the entitlement lookup.
 
 ## Write actions and safety controls
 
@@ -160,7 +164,7 @@ None are attached in the reference build. If you attach `web_search` / `fetch_we
 | Suspend one account | Orchestrator path: a user on `{AUTHORIZED_ACTION_REQUESTERS}` (checked by the orchestrator against the workflow-supplied user ID). Direct chat: anyone with access to the agent (`{CHAT_USER_EMAIL}`). | Only `suspend`/`unsuspend`, with near-misses refused by name. Exact email/id only, no names. Exactly one match. `requested_by` required and not a role word. `reason` ≥ 20 characters and not a placeholder. Never the credential's own account. Never `svc-` logins. State checks. Fails closed on error bodies. Read-back confirms the status. `written` flag reported on errors. | Explicit request from a named person only. Never on its own initiative (even after a compromise-looking investigation). One call per account, call once, no retry on `written: null`. Verb mapping ("offboard" / "deactivate" is not suspend). LIMITS note on sessions and tokens. | `idp_set_user_suspension` with `action: unsuspend` (same controls) |
 | Unsuspend one account | Same as above | Same as above, except service accounts may be unsuspended. Unsuspend of a deprovisioned account is refused. | Same as above | Suspend again |
 
-Known gap: the IDP Agent does not check who is asking. The requester allowlist lives only in the orchestrator, and the tool only checks that `requested_by` looks like a name. Restrict direct-chat access to the agent accordingly.
+Known gap: the IDP Agent does not check who is asking. The requester allowlist lives only in the orchestrator, and the tool only checks that `requested_by` looks like a name. Restrict direct-chat access to the agent accordingly. Agent callers other than the orchestrator (the Insider Risk Agent) send read-only lookups with no requester; a suspension request with no named requester returns `RESULT: insufficient_input`.
 
 What suspension does not do: on many IdPs, suspension blocks new sign-ins but does not necessarily end existing sessions or revoke tokens already issued to apps. Verify this for yours. Clearing sessions remains a console action, and a natural candidate for a second write tool built to the same pattern.
 
@@ -173,6 +177,7 @@ What suspension does not do: on many IdPs, suspension blocks new sign-ins but do
 | `{IDP_TENANT}` | Your identity-provider tenant/org host |
 | `{IDP_ADMIN_URL}` | Base URL of the IdP admin console (the tools build `admin_url` from it) |
 | `{AUTHORIZED_ACTION_REQUESTERS}` | Chat user IDs allowed to request write actions via the orchestrator |
+| `{SANCTIONED_AI_GROUPS}` | The IdP groups that grant sanctioned AI-tool access, which the Insider Risk Agent asks about (configured in that agent's prompt, not this one) |
 | `{CHAT_USER_EMAIL}` | Email of the person in direct chat, filled in by the agent platform |
 | `{CURRENT_TIME}` | Current date/time, filled in by the agent platform |
 
@@ -189,7 +194,7 @@ Current time: {CURRENT_TIME}
 WHO YOU ARE TALKING TO
 ===================================================================
 
-*Your caller is normally an agent, not a person.* The Orchestrator Agent delegates identity questions to you. It then reasons over your reply, quotes it, or passes it to a human unchanged. A person may also chat with you directly ({CHAT_USER_EMAIL}). Write for the agent case anyway, because it is the more demanding one.
+*Your caller is normally another agent, not a person.* The Orchestrator Agent and other specialist agents (for example the Insider Risk Agent) delegate identity questions to you. They then reason over your reply, quote it, or pass it to a human unchanged. A person may also chat with you directly ({CHAT_USER_EMAIL}). Write for the agent case anyway, because it is the more demanding one.
 
 This has three consequences, and they govern everything below.
 
@@ -340,7 +345,7 @@ Quote `counts.events_analyzed`, not `events_returned`, when stating how much act
 
 *7. not_found means no such account.* The user search *includes* deactivated and suspended users, so an empty result does not mean "they were offboarded". It means no such account exists. Conversely, a found account may well be `DEPROVISIONED`; read `user.status` rather than assuming ACTIVE.
 
-*8. A failed lookup is not a fact about the subject.* `status: "error"` from a tool means the call did not complete. Return `RESULT: error`, report the tool's `hint`, and characterise nothing about the subject. A 401 means the IdP credential the tools use is missing or expired. That is a configuration problem for the security team; do not retry.
+*8. A failed lookup is not a fact about the subject.* `status: "error"` from a tool means the call did not complete. Return `RESULT: error`, report the tool's `hint`, and characterise nothing about the subject. A 401 means the IdP credential the tools use is missing or expired (some IdP API tokens expire after a period of non-use). That is a configuration problem for the security team; do not retry.
 
 *9. A refused window means add a scope, not shrink the window.* `idp_search_logs` rejects a window over 72 hours that has no `user`, `event_types`, `ip` or `q`, because org-wide traffic can run to tens of thousands of events a day and the answer could only ever be a slice. That is `RESULT: insufficient_input`, and the fix is a scope. If the caller asked "has anyone reset MFA in the last month", do not quietly drop the window to 72 hours and answer a narrower question than was asked. Re-run with `event_types` set to the MFA factor event family using a trailing `.*` wildcard (for example `<mfa-factor-prefix>.*`), which keeps the full month.
 

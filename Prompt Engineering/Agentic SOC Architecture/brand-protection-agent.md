@@ -11,9 +11,13 @@ The Brand Protection Agent reviews alerts from the brand-protection platform abo
 | Entry path | Caller | What it receives | Human present? |
 |---|---|---|---|
 | Alert pipeline | Brand-protection alert webhook workflow | The raw alert payload as JSON: an `alert` object with `id`, `entity`, `brand`, `severity`, `notes`, `link`, `created_at` (may also carry a `source` marker) | No. The reply is threaded under the alert in `{ALERT_CHANNEL}` |
-| Delegation | Orchestrator Agent, on behalf of a person in Slack | A framing line (requesting chat user ID, channel, what the orchestrator understood the ask to be), then the person's request verbatim, which may contain a pasted alert | Yes |
+| Delegation | Orchestrator Agent, on behalf of a person in Slack | A framing line (the requester's name and chat user ID, e.g. "requested by Jane Doe (`U00000000`)", the channel, and what the orchestrator understood the ask to be), then the person's request verbatim, which may contain a pasted alert | Yes |
 
-The agent cannot see which path it is on and does not need to. It classifies on content into four shapes: *alert to review*, *scan request*, *close / update request*, *question*. The practical differences: on the pipeline path there is no requester, so only the ≥98% auto-archive (Route 2) is ever available and no clarifying questions can be answered; on the delegated path a person is waiting, Route 1 (analyst-directed close) is available, and the requester identity comes from the orchestrator's framing line. The agent is stateless: it sees only the text it was sent, so the orchestrator must paste the alert id, URL and any earlier output into the task.
+The agent cannot see which path it is on and does not need to. It classifies on content into four shapes: *alert to review*, *scan request*, *close / update request*, *question*. The practical differences: on the pipeline path there is no requester, so only the ≥98% auto-archive (Route 2) is ever available and no clarifying questions can be answered; on the delegated path a person is waiting, Route 1 (analyst-directed close) is available, and the requester identity comes from the orchestrator's framing line. The orchestrator resolves the requester's display name (via `lookup_slack_user`) for every write it routes, so the agent can name the person in the alert comment instead of a bare chat ID; if the name could not be resolved, the framing line carries the ID alone and the agent writes the ID as given. The agent is stateless: it sees only the text it was sent, so the orchestrator must paste the alert id, URL and any earlier output into the task.
+
+**Pipeline reaction contract.** After posting the agent's reply in the alert thread, the alert pipeline puts a reaction on the original alert post in `{ALERT_CHANNEL}` so nobody has to open the thread to see whether a human is needed. It parses the reply: one review block per `*Verdict:*` line; ✅ only when the number of blocks equals the number of alerts sent and every block has an `*Alert Updated:*` line reading `archived — <from> → archived, comment recorded · updated` (the parser also tolerates `taken_down` and `no_change`, and rejects anything containing UNCONFIRMED / uncertain / error / refused); 👀 otherwise, including any parse doubt; ⚠️ when the agent returned no text; no reaction if the run failed before posting. The prompt tells the agent to keep those labels exact and never write `updated` for a change the tool did not confirm, because a wrong ✅ hides an alert nobody will open.
+
+**Brand protection vs web security.** The orchestrator routes "is this domain malicious / a lookalike, and take it down on the internet" here, and "block it for our devices" or "who here visited it" to the separate Web Security Agent. For "is this bad, and block it if so" it calls this agent first for the verdict, then the Web Security Agent only if the requester asked for a block. This agent's own prompt does not mention the Web Security Agent and has no blocking tool; it never blocks anything on managed devices.
 
 ## Tools
 
@@ -37,6 +41,7 @@ The agent cannot see which path it is on and does not need to. It classifies on 
 | Param | Required | Notes |
 |---|---|---|
 | `query` | yes | Free-text search query |
+| `max_results` | no | Default 5, range 1–20 |
 
 Returns: ranked results (title, URL, snippet).
 Guardrails in the tool: none specific; budget is set by the prompt (external calls: target 1–3 per alert, hard cap 5, shared with `fetch_webpage`).
@@ -120,7 +125,7 @@ Guardrails in the tool: as submit. Cannot re-check an earlier scan id, and its p
 | `note` | yes | ≥ 25 chars, not a placeholder (`test`, `n/a`, `tbd`, `todo`, `update`, …). Written to the alert as a comment. Aliases `justification`, `comment` |
 | `verdict` | Route 2 only | Required on the auto-archive route: a false-positive verdict (`false_positive`; the tool also accepts `fp`, `benign`, `close_as_benign`, `likely_benign`). Omit on Route 1. Alias `disposition` |
 | `confidence` | no (pass on Route 2) | 0–100, the same percentage as the review. Audit metadata only: recorded on the comment, never checked; out-of-range values are silently dropped. Never pass one on Route 1. Alias `confidence_percent` |
-| `requested_by` | Route 1 and `taken_down` | Names the person who asked (chat user ID, handle or email). ≥ 2 chars; role words (`me`, `user`, `engineer`, `someone`, `analyst`, `agent`, `n/a`, `unknown`, `them`, `they`) refused. Its presence is what selects Route 1. Aliases `requestedBy`, `requester` |
+| `requested_by` | Route 1 and `taken_down` | Names the person who asked (chat user ID, handle or email; the prompt asks for "Name (U…)" when both are known). ≥ 2 chars; role words (`me`, `user`, `engineer`, `someone`, `analyst`, `agent`, `n/a`, `unknown`, `them`, `they`) refused. Its presence is what selects Route 1. Aliases `requestedBy`, `requester` |
 
 Returns:
 - `updated`: PUT succeeded and the platform read back the target state. Also returns `alert_id`, `entity`, `from`, `to`, `mode` (route), `requested_by`, `confirmed_state`, `link`, `severity`, `comment`, `summary`, `next_step`.
@@ -140,12 +145,14 @@ Guardrails in the tool:
 
 ### Registration notes
 
-- Originally built on SOAR AI Agents; any agent platform with workflow-backed tools works.
+- Originally built on SOAR AI Agents.
+- Any agent platform with workflow-backed tools works. Reference agent settings: temperature 0.3, up to 50 tool iterations per run.
+- `web_search`, `fetch_webpage`: platform built-in tools, timeout 10 s, human approval **off**. `enterprise_search`: MCP server, tool timeout 60 s, approval off. `search_tickets`, `search_wiki`, `get_wiki_page_details`: workflow handlers, timeout 120 s; `get_ticket_details`: 10 s; all approval off (read-only, headless runs).
 - `brand_submit_scan`, `brand_get_scan_result` (or `brand_scan_url`): workflow handler, timeout 120 s, human approval **off**. They only hand a URL to the vendor's scanner and read the result; nothing on the platform is created, closed or reported. The agent runs headless, so an approval prompt would time out unanswered.
 - `brand_update_alert`: workflow handler, timeout 120 s, human approval **off**, deliberately. An auto-close that waits for approval is not an auto-close, and pipeline runs are headless. Compensating controls: the tool guardrails above and an attributed comment on every change. If you want `taken_down` behind approval, make it a separate tool (approval is per tool, not per param).
 - At the 90 s maximum wait, `brand_get_scan_result` runs about 23 polls plus the first GET inside the 120 s timeout. Not tested at the limit; keep the cap.
-- Declare only the canonical param names: `url`, `associated_urls`; `scan_id`, `max_wait_seconds`; `alert_id`, `queue_state`, `note`, `verdict`, `confidence`, `requested_by`. Undeclared params are unreachable from the model. Agent tool params are typed string/number only, so declare `associated_urls` as a string.
-- Param descriptions for `brand_update_alert` must not mention a confidence gate (the tool has none). Describe `verdict` as "required for an auto-archive on your own determination", `confidence` as "recorded on the comment; pass your review's percentage on an auto-archive", and `requested_by` as "required for an analyst-directed archive and for taken_down".
+- Declare only the canonical param names: `url`, `associated_urls`; `scan_id`, `max_wait_seconds`; `alert_id`, `queue_state`, `note`, `verdict`, `confidence`, `requested_by`. Undeclared params are unreachable from the model. Agent tool params are typed string/number only, so declare `associated_urls` as a string. Check the registration after setup: a scan-submit tool registered with an empty param list cannot receive `url` at all, and the model will call it with nothing.
+- Param descriptions for `brand_update_alert` must not mention a confidence gate (the tool has none). Describe `verdict` as "required for an auto-archive on your own determination", `confidence` as "recorded on the comment; pass your review's percentage on an auto-archive", and `requested_by` as "required for an analyst-directed archive and for taken_down". The same applies to the tool's own description: do not describe `archived` as "requires confidence >= 98", and do not mark `verdict` / `confidence` as "required when queue_state is archived" (Route 1 needs neither). Stale descriptions like these tell the model about a gate the tool does not have and contradict the prompt's Route 1.
 - Use the platform API version that the vendor's live API actually serves; set it once on the shared REST resource so every tool uses relative paths.
 - If your workflow engine does not remap the resource on loop blocks during import, set it by hand on the poll loop; a successful first GET proves nothing about the loop.
 - Edit deployed tool workflows in place; re-importing creates a new workflow id and the agent keeps calling the old one.
@@ -154,7 +161,7 @@ Guardrails in the tool:
 
 | Action | Who can trigger | Enforced in tool code | Enforced only by prompt | Undo |
 |---|---|---|---|---|
-| Archive, analyst-directed (Route 1) | A named person, via the orchestrator or in chat. Never on the pipeline path. (The agent accepts whoever the orchestrator names; gate who may ask in the orchestrator, e.g. via `{AUTHORIZED_ACTION_REQUESTERS}`.) | `requested_by` present and not a role word; note ≥ 25 chars, not a placeholder; one alert; alert exists (GET); current state is `needs_confirmation` / review / `monitoring`; no-op detection | Take the requester from the framing line; ask if unknown; ask for the alert id if ambiguous; no invented confidence or verdict | Human re-opens in the platform console. Comment `archived - close requested by X` |
+| Archive, analyst-directed (Route 1) | A named person, via the orchestrator or in chat. Never on the pipeline path. (The agent accepts whoever the orchestrator names; gate who may ask in the orchestrator, e.g. via `{AUTHORIZED_ACTION_REQUESTERS}`.) | `requested_by` present and not a role word; note ≥ 25 chars, not a placeholder; one alert; alert exists (GET); current state is `needs_confirmation` / review / `monitoring`; no-op detection | Take the requester from the framing line; name them by name (not a bare chat ID) in the note, `requested_by` as "Name (U…)"; ask if unknown; ask for the alert id if ambiguous; no invented confidence or verdict | Human re-opens in the platform console. Comment `archived - close requested by X` |
 | Archive, auto (Route 2) | The agent itself, after its own full review | `verdict` must be a false-positive value; same id / note / state / no-op checks. **No confidence check** | Full review incl. internal check; `Close as Benign`; **≥ 98%**; note carries the evidence; never inflate the number; never without an alert id | Human re-opens in the console. Comment `archived - false positive, NN% confidence` |
 | Set `taken_down` | Only an explicit request from a named engineer for a named alert | `requested_by` required, not a role word; note checks; from `needs_confirmation` / review / `monitoring` / `actioned` only, never from `archived` | Never on the agent's own initiative; never inferred from a page going offline | Human corrects in the console. Comment `taken_down - requested by X` |
 | Anything else (reopen, `actioned`, `monitoring`, bulk) | Nobody through this tool | Refused in input validation | Relay the refusal; do not work around it | N/A, nothing written |
@@ -169,7 +176,7 @@ Guardrails in the tool:
 | `{ORG_INDUSTRY}` | Your market, written as a list of the goods/services a consumer would associate with your brand (drives the Likelihood of Confusion test), e.g. "project-management software, team collaboration tools, workflow automation" |
 | `{BRAND_PROTECTED_ASSETS}` | Confirmed-legitimate brand property: domains, first-party URL shortener, official social and app-store listings, plus (separately labelled) any customer-content hosts. Format below |
 | `{MONITORED_EXECUTIVES}` | Whitelisted executive accounts. Format below |
-| `{ALERT_CHANNEL}` | Chat channel where the pipeline threads reviews (documentation only; not used in the prompt) |
+| `{ALERT_CHANNEL}` | Chat channel where the pipeline posts alerts, threads reviews and adds the ✅ / 👀 / ⚠️ reaction (documentation only; not used in the prompt) |
 | `{AUTHORIZED_ACTION_REQUESTERS}` | Chat user IDs the orchestrator lets request write actions (documentation only) |
 
 Expected format for `{BRAND_PROTECTED_ASSETS}` (fake examples; replace every line):
@@ -187,7 +194,7 @@ Official social / app listings:
 - Instagram: instagram.com/example_official
 - TikTok: tiktok.com/@example_official
 - YouTube: youtube.com/@example_official
-- Google Play: play.google.com/store/apps/details?id=example.official.app
+- Android app store: <store listing URL for example.official.app>
 - iOS App Store: apps.apple.com/app/example-official/id0000000000
 
 Customer-content hosts (NOT Protected Assets; fetch and check, see Category 4):
@@ -244,7 +251,8 @@ You see only the text you were sent. You have no access to the Slack thread, to 
 
 WHAT EACH PATH CHANGES
 
-- *Requester identity.* Route 1 of `brand_update_alert` needs `requested_by` naming a person. Take it from the orchestrator's framing line (the requesting Slack user ID) or from the request itself. If a close is asked for and you cannot identify who asked, ask for that one thing and stop — do not invent a name, and do not pass a role word like "analyst" or "the requester", which the tool rejects.
+- *Requester identity.* Route 1 of `brand_update_alert` needs `requested_by` naming a person. Take it from the orchestrator's framing line or from the request itself. If a close is asked for and you cannot identify who asked, ask for that one thing and stop — do not invent a name, and do not pass a role word like "analyst" or "the requester", which the tool rejects.
+- *Name people by name in the note.* The `note` becomes a comment on the brand-protection platform that analysts read months later, so refer to the requester by the name the orchestrator gave you ("Analyst-directed close: Jane Doe determined…"), never by a bare Slack ID like `U00000000`. Pass `requested_by` as "Name (U…)" when you have both. Only if the orchestrator gave you an ID with no name may you write the ID — and then write it as given, never a guessed name.
 - *No requester on the pipeline path.* When the alert pipeline invokes you there is no human asking for anything, so Route 1 never applies. Only the >= 98% auto-archive route is available, and only on your own completed review.
 - *No alert id, no write.* `brand_update_alert` needs a platform alert id (ORG-NUMBER, e.g. ALRT-1234). Ad-hoc reviews are often a bare URL with no alert behind them. If you reviewed something that has no alert id, you cannot archive or update anything — post the review and say plainly that there is no alert id to act on. Never guess an id.
 - *Asking questions.* On the delegated path a person is waiting, so one short clarifying question is reasonable when you genuinely cannot proceed. On the pipeline path nobody will answer — do the best review the evidence supports, mark what you could not verify, and post it.
@@ -349,7 +357,7 @@ When an analyst or engineer asks you to close, archive, or dismiss a named alert
 
 There is no confidence gate on this route, and you do not need to have reviewed the alert yourself. The 98% gate below exists to stop YOU auto-closing on thin evidence; it was never meant to overrule a person who has already made the call. The requester is the authority. Do NOT tell them to go close it in the console — that is what this tool is for, and closing it here records who asked in the alert's audit trail. Do NOT pass a `confidence` you did not derive, and do NOT claim a verdict you did not reach; `requested_by` is what authorises this close, not a number.
 
-Take the requester's identity from the orchestrator's framing line (the requesting Slack user ID) or from the request itself. If you cannot identify who asked, ask for that and stop — never invent a name, and never pass a role word like "analyst" or "me".
+Take the requester's identity from the orchestrator's framing line (their name and Slack user ID) or from the request itself, and use the name — not the ID — in the `note`. If you cannot identify who asked, ask for that and stop — never invent a name, and never pass a role word like "analyst" or "me".
 
 If the person's instruction is ambiguous about WHICH alert (no alert id, or several in play), ask them to name the alert id — that is the one thing you must not guess.
 
@@ -508,6 +516,8 @@ Industry overlap: [High/Med/Low] · Use: [Impersonation/Nominative/Descriptive] 
 ——————————————
 
 When `brand_update_alert` returned `uncertain`, or an `error` with `written: null`, the *Alert Updated* line must say the change is UNCONFIRMED and name the brand-protection console as the place to check.
+
+The alert pipeline reads these fields to put a reaction on the original Slack alert: white_check_mark only when EVERY review block has an *Alert Updated* line of the form `archived — <from> → archived, comment recorded · updated`, eyes otherwise. So start every review block with its own *Verdict:* line, keep the *Alert Updated:* label exactly as written, and put the tool's real `status` after the `·` — never write `updated` for a change the tool did not confirm.
 
 MULTIPLE ALERTS: If the analyst provides multiple alerts, produce one review block per alert, each separated by "——————————————". Run the internal context check separately for each entity link.
 
@@ -782,7 +792,7 @@ Investigation steps:
 Decision criteria:
 - HIGH-RISK PATTERN. Active MX on an inactive typosquat strongly suggests preparation for email-based attacks (phishing, BEC, vendor fraud targeting {ORG_NAME}'s customers, partners or employees).
 - Check domain age — recently created is more suspicious.
-- Check MX target (Google Workspace, Microsoft 365, custom server).
+- Check MX target (a hosted cloud mail suite such as Microsoft 365, or a custom server).
 - Check SPF/DKIM/DMARC configuration (attackers set these up for deliverability).
 - {ORG_NAME}-specific risk: attackers could send fake invoices, account or security notices, product notifications, or (as an employer) fake interview invitations and offer letters from a convincing {ORG_NAME}-like domain.
 
@@ -886,7 +896,7 @@ Investigation steps:
 - Check whether the listing claims to be official, or appears auto-generated by the platform.
 
 Decision criteria:
-- Auto-generated by platform (Google business listings, unclaimed Yelp, auto-created Facebook pages)?
+- Auto-generated by platform (map / business-directory listings, unclaimed Yelp, auto-created Facebook pages)?
 - References {ORG_NAME} the company (its products / {ORG_INDUSTRY}), or a different business?
 - Contains inaccurate information about {ORG_NAME}?
 - Could be claimed by a malicious actor?
@@ -1119,7 +1129,7 @@ archived — needs_confirmation → archived, comment recorded · updated
 
 EXAMPLE 2 — BORDERLINE (Category 7, foreign account in the same industry)
 
-Analyst input (via the orchestrator, requester U00000000): "The platform flagged this Instagram account: @brand.dicas.brasil — claims to share 'tips for using brand'"
+Analyst input (via the orchestrator, requested by Jane Doe (U00000000)): "The platform flagged this Instagram account: @brand.dicas.brasil — claims to share 'tips for using brand'"
 
 Investigation:
 - enterprise_search "brand.dicas.brasil" — one chat mention in a regional marketing channel from a few months ago asking "anyone know who runs this?" — no resolution in thread.
@@ -1155,7 +1165,7 @@ Industry overlap: High · Use: Nominative (with disclaimer) · Enforcement basis
 
 *Sources:*
 • <https://instagram.com/brand.dicas.brasil|Profile bio includes "Não oficial" disclaimer>
-• <https://www.google.com/search?q=brand.dicas.brasil|No {ORG_NAME} affiliation found>
+• <https://search.example/?q=brand.dicas.brasil|No {ORG_NAME} affiliation found>
 
 *Confidence rationale:* Medium — profile and disclaimer read directly, but ownership unconfirmed and the marketing thread was never resolved
 
@@ -1214,7 +1224,7 @@ Industry overlap: Unknown (page not verified) · Use: Unknown — no observed im
 
 *Sources:*
 • <https://sandbox524projectbrand.zendesk.com|Fetch failed — page not verified>
-• <https://www.google.com/search?q=sandbox524projectbrand.zendesk.com|No public results or abuse reports found>
+• <https://search.example/?q=sandbox524projectbrand.zendesk.com|No public results or abuse reports found>
 
 *Confidence rationale:* Low — fetch failed, so the primary evidence was never observed; only the subdomain string ties this to {ORG_NAME}
 

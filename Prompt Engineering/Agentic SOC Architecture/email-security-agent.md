@@ -11,7 +11,7 @@ The Email Security Agent is the security team's email analyst. It reviews messag
 | Entry path | Caller | What it receives | Human present? |
 |---|---|---|---|
 | **Path A: alert pipeline** | The email-security alert workflow. A platform rule flags a message → webhook → the workflow polls the platform's built-in AI verdict every 10 s for ~5 min → if that verdict is decided (malicious / spam / graymail / likely_benign / benign) the run ends silently → only if it is `unknown`, missing, or the lookup failed is the agent invoked → the agent's reply is posted to `{ALERT_CHANNEL}` **unless** its verdict is *Benign* or *Spam / Graymail* at ≥ 90% (filed silently; still visible in the run log) | A data-only JSON payload with `"source": "email_security_webhook"`: `message.id`, `message.group_id`, `flagged_rules[]`, `highest_rule_severity`, `platform_triggered_actions_at_flag_time[]`, `platform_ai_verdict`, `platform_classification`, `user_reports[]`, optional `extra_webhook_fields` | No |
-| **Path B: orchestrator delegation** | The Orchestrator Agent, when someone asks it an email question or action in Slack | A self-contained task starting with a framing line naming the requester's Slack user ID and channel. The orchestrator must paste in the request verbatim, the message id (never the group id), relative time windows, and any earlier verdict for follow-ups | Yes (via the orchestrator) |
+| **Path B: orchestrator delegation** | The Orchestrator Agent, when someone asks it an email question or action in Slack | A self-contained task starting with a framing line naming the requester's Slack user ID and channel (for an action, also the requester's name, resolved with `lookup_slack_user`). The orchestrator must paste in the request verbatim; the message id (a UUID, never the group id) when it has one, otherwise whatever identifies the email verbatim (sender, subject, recipient mailbox, or the Message-ID header, labelled as such; for a pasted email with no identifier, its sender and subject as written); relative time windows; and, for follow-ups, the agent's earlier verdict from the thread. A triage request is sent as triage only: the orchestrator never tells the agent to quarantine, trash or block, and routes an action only when a requester on `{AUTHORIZED_ACTION_REQUESTERS}` explicitly asked for it | Yes (via the orchestrator) |
 | **Path B: direct chat** | A person chatting with the agent in the agent platform | Their message; the platform fills `{CHAT_USER_NAME}` / `{CHAT_USER_EMAIL}` into the session line | Yes |
 | *Companion: audit-poll workflow* | Scheduled every 15 min | Not the agent. Reads the email-security platform's audit log and posts to `{ALERT_CHANNEL}` whenever a **human** views message contents in the console (collapsed per person and message group, with justification text). API-key reads (i.e. the agent's own reads) are excluded by design. A failed poll posts a loud warning | n/a |
 
@@ -62,7 +62,7 @@ Guardrails in the tool:
 | `justification` | yes | ≥ 15 chars, not a placeholder (`review`, `investigation`, …). Truncated to 500. Recorded in the platform's access audit trail against the API key's user |
 | `include_raw` | no | Also return a raw excerpt (headers verbatim, long base64 elided). Default false |
 | `max_body_chars` | no | Default 8000, clamped 500–30000 |
-| `max_raw_chars` | no | Default 20000, clamped 2000–60000 (optional to declare) |
+| `max_raw_chars` | no | Default 20000, clamped 2000–60000. Not declared in the reference registration, so the model cannot set it and the default always applies; declare it only if you need larger raw excerpts |
 
 Returns: `message` (platform metadata incl. group id, mailbox, recipients, `was_read` / `was_replied` / `was_forwarded` with timestamps), `headers`, `authentication` (from the **topmost** Authentication-Results only; SPF, DKIM result and domain, DMARC and policy, ARC; missing results reported as `none_reported`), `received` (≤ 15 hops), `bodies`, `links` (≤ 60, with `display_mismatch` / `ip_host` / `punycode`; meta-refresh targets included), `forms` (`has_password_field`), `attachments`, `attached_messages` (parsed recursively), `signals` (`internal_sender`, `reply_to_differs`, `return_path_differs`, `display_name_has_other_email`, `dkim_pass_aligned`, `password_form`, `risky_attachments`, `zero_width_chars`, …) and `next_step`.
 Guardrails in the tool:
@@ -122,14 +122,15 @@ Guardrails in the tool:
 
 ### Registration notes
 
-- Originally built on SOAR AI Agents. Recommended agent settings: the strongest available model, temperature `0.2`, max iterations `20` (a full review is ~4–6 tool calls), only these five tools.
+- Originally built on SOAR AI Agents. Reference agent settings: the strongest available model, temperature `0.3`, max iterations `50`, extended thinking off, no MCP servers, only these five tools. A full review is ~4–6 tool calls; ad-hoc questions can chain more.
 - `email_search_messages`: workflow handler, timeout 120 s, human approval **off**.
 - `email_get_message_eml`: workflow handler, timeout 120 s, human approval **off**.
 - `email_action_message`: workflow handler, timeout 120 s, human approval **off**. Path A runs headless, so an approval prompt would have nobody to answer it and would time out; the guardrails live in the workflow instead.
 - `email_get_action_status`: workflow handler, timeout 120 s, human approval **off**.
 - `email_block_sender`: workflow handler, timeout 120 s, human approval **off** (same reason). If you want a human gate anyway, enable the platform human-approval setting on this tool only (org-wide, future-facing blast radius), accepting that Path A blocks then wait for a human.
 - Register the tools with exactly the `email_`-prefixed names used in the prompt. A mismatched name does not error; the agent simply never uses that tool.
-- Declare only the canonical param names listed above. The platform posts the declared params as the workflow body, so undeclared params are unreachable. A workflow must be deployed before it appears in the tool picker.
+- Declare only the canonical param names listed above (the reference registration declares all of them except `max_raw_chars`; `task_id`/`group_id` are both declared optional, and the tool enforces "at least one"). The platform posts the declared params as the workflow body, so undeclared params are unreachable. A workflow must be deployed before it appears in the tool picker.
+- On the orchestrator, register this agent as an agent tool (one `message` param, timeout 30 min, human approval off) whose description says it covers verdicts, mail searches and who read/clicked/replied, and that it quarantines, trashes or blocks senders when the requester asks.
 - The alert workflow invokes the agent synchronously with a 600 s timeout and has no error handler of its own: if the agent call errors or times out, nothing posts (check the run log). An empty or unparseable reply **does** post (fail open).
 
 ## Write actions and safety controls
