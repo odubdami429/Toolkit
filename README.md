@@ -38,7 +38,7 @@ Custom extension attributes for Jamf Pro.
 |------|-------------|
 | `Firefox_Config.xml` | Firefox configuration template. |
 
-### Prompt Engineering
+### Agentic Engineering
 AI prompts and AI Agent skills used for security and IT operations.
 
 | File | Description |
