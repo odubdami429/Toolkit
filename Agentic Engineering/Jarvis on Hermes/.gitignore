@@ -1,0 +1,25 @@
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan
+crash.log
+terraform.tfvars
+backend.hcl
+
+# Deployment config (copy the .example files)
+hermes/managed/.env
+hermes/managed/org.env
+hermes/managed/host.env
+
+# Secrets that should never be committed
+*.pem
+*-secret.json
+jarvis-secret.json
+
+# Python / OS
+__pycache__/
+.pytest_cache/
+*.pyc
+.venv/
+.DS_Store

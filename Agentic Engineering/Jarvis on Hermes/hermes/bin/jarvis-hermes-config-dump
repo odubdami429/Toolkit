@@ -1,0 +1,28 @@
+#!/bin/bash
+# Print the EFFECTIVE config (user layer + /etc/hermes overlay) and the Slack tool surface from a throwaway
+# container with the same mounts as the gateway, but no network and no secrets.
+set -euo pipefail
+H=/opt/jarvis/hermes
+T=$(mktemp -d); trap 'rm -rf "$T"' EXIT; chown 10000:10000 "$T"
+
+run() {
+  docker run --rm --init --network none --user 10000:10000 --read-only --cap-drop ALL --security-opt no-new-privileges \
+    --tmpfs /tmp:rw,noexec,nosuid,nodev,size=64m,uid=10000,gid=10000 \
+    -e HERMES_BUNDLED_SKILLS=/opt/jarvis/empty-bundled \
+    -v "$T:/opt/data" \
+    -v "$H/config.yaml:/opt/data/config.yaml:ro" \
+    --env-file "$H/managed/org.env" \
+    -v "$H/empty.env:/opt/data/.env:ro" \
+    -v "$H/SOUL.md:/opt/data/SOUL.md:ro" \
+    -v "$H/plugins:/opt/data/plugins:ro" \
+    -v "$H/skills:/opt/jarvis/skills:ro" \
+    -v "$H/empty-bundled:/opt/jarvis/empty-bundled:ro" \
+    -v "$H/managed/config.yaml:/etc/hermes/config.yaml:ro" \
+    -v "$H/managed/.env:/etc/hermes/.env:ro" \
+    --entrypoint hermes "$(cat "$H/IMAGE")" "$@" 2>&1 | grep -v 'install out of sync'
+}
+
+echo "===== hermes config show"; run config show
+echo "===== hermes config check (version + required only)"; run config check | sed -n '1,/Optional:/p' || true
+echo "===== hermes plugins list (enabled + jarvis only)"; run plugins list | grep -E "^(┃ Name|│ [a-z_-]+ +│ enabled|│ jarvis)" || true
+echo "===== hermes tools list --platform slack"; run tools list --platform slack || run tools --summary

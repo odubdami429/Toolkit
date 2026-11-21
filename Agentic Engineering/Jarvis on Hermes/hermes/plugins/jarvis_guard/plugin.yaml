@@ -1,0 +1,15 @@
+name: jarvis_guard
+version: "1.1.0"
+description: "Jarvis guard for a Hermes Slack security agent: deny tool calls without an allowlisted Slack requester or outside the pinned workspace, admit only configured trigger bots in their alert channels, block skill_manage and clarify, sign jarvis-tools calls, keep Slack-style bold labels bold; plus Slack lookups, channel history and the create/join channel tools."
+author: "Jarvis contributors"
+provides_hooks:
+  - pre_tool_call
+  - pre_gateway_dispatch
+  - transform_llm_output
+provides_tools:
+  - jarvis_whoami
+  - lookup_slack_user
+  - resolve_slack_link
+  - read_slack_channel
+  - create_slack_channel
+  - join_slack_channel

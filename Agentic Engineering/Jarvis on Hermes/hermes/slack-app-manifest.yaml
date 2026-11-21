@@ -1,0 +1,41 @@
+# Jarvis Slack app. api.slack.com/apps -> Create New App -> From a manifest.
+# Deliberately left out: slash commands and the `commands` scope, files:write, and mpim:*.
+# channels:join, groups:write and usergroups:read are only for join_slack_channel and create_slack_channel; drop them
+# if you don't want Jarvis to join or create channels (those tools then fail with a missing_scope message).
+display_information:
+  name: Jarvis - Security Agent
+  description: Security team assistant (Hermes agent with security-domain specialists).
+features:
+  bot_user:
+    display_name: jarvis
+    always_online: true
+oauth_config:
+  scopes:
+    bot:
+      - app_mentions:read
+      - channels:history
+      - groups:history
+      - im:history
+      - im:read
+      - im:write
+      - chat:write
+      - users:read
+      - users:read.email
+      - files:read
+      - reactions:write
+      - assistant:write
+      - channels:join
+      - groups:write
+      - usergroups:read
+settings:
+  event_subscriptions:
+    bot_events:
+      - app_mention
+      - message.channels
+      - message.groups
+      - message.im
+  interactivity:
+    is_enabled: true
+  org_deploy_enabled: false
+  socket_mode_enabled: true
+  token_rotation_enabled: false

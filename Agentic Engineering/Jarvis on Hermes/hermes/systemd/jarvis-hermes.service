@@ -1,0 +1,28 @@
+[Unit]
+Description=Jarvis: Hermes gateway (Slack Socket Mode)
+Requires=docker.service
+After=docker.service network-online.target jarvis-tools.service
+Wants=network-online.target jarvis-tools.service
+RequiresMountsFor=/var/lib/jarvis
+StartLimitIntervalSec=600
+StartLimitBurst=3
+
+[Service]
+Type=simple
+# Optional host settings for jarvis-secrets (JARVIS_SECRET_ID, AWS_REGION); the defaults apply without it.
+EnvironmentFile=-/opt/jarvis/hermes/managed/host.env
+ExecStartPre=-/usr/bin/docker rm -f jarvis-hermes
+ExecStartPre=/opt/jarvis/hermes/bin/jarvis-secrets
+ExecStartPre=/opt/jarvis/hermes/bin/jarvis-preflight
+ExecStart=/opt/jarvis/hermes/bin/jarvis-hermes-run
+ExecStartPost=/opt/jarvis/hermes/bin/jarvis-guard-canary
+TimeoutStartSec=120
+# restart_drain_timeout is 120 s: give in-flight turns time to finish before docker kills the container.
+ExecStop=/usr/bin/docker stop --time 130 jarvis-hermes
+ExecStopPost=/usr/bin/rm -f /run/jarvis/hermes.env /run/jarvis/guard-nonce
+TimeoutStopSec=150
+Restart=on-failure
+RestartSec=30
+
+[Install]
+WantedBy=multi-user.target

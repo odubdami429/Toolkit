@@ -1,0 +1,33 @@
+#!/bin/bash
+# ExecStart for jarvis-hermes.service. Runs the Hermes gateway in the foreground as the image's hermes user
+# (UID 10000), skipping upstream /init and stage2-hook: those chown -R the data volume, seed .env/config.yaml
+# and generate API_SERVER_KEY.
+set -euo pipefail
+H=/opt/jarvis/hermes
+
+exec docker run --rm --name jarvis-hermes \
+  --init \
+  --user 10000:10000 \
+  --entrypoint hermes \
+  --read-only \
+  --tmpfs /tmp:rw,noexec,nosuid,nodev,size=256m,uid=10000,gid=10000,mode=0700 \
+  --cap-drop ALL \
+  --security-opt no-new-privileges \
+  --memory 3g --pids-limit 512 \
+  --network jarvis \
+  --log-driver journald --log-opt tag=jarvis-hermes \
+  --env-file /opt/jarvis/hermes/managed/org.env \
+  --env-file /run/jarvis/hermes.env \
+  -e HERMES_BUNDLED_SKILLS=/opt/jarvis/empty-bundled \
+  -e JARVIS_GUARD_BOOT_NONCE="$(cat /run/jarvis/guard-nonce)" \
+  -v /var/lib/jarvis/hermes:/opt/data \
+  -v "$H/config.yaml:/opt/data/config.yaml:ro" \
+  -v "$H/empty.env:/opt/data/.env:ro" \
+  -v "$H/SOUL.md:/opt/data/SOUL.md:ro" \
+  -v "$H/plugins:/opt/data/plugins:ro" \
+  -v "$H/skills:/opt/jarvis/skills:ro" \
+  -v "$H/empty-bundled:/opt/jarvis/empty-bundled:ro" \
+  -v "$H/managed/config.yaml:/etc/hermes/config.yaml:ro" \
+  -v "$H/managed/.env:/etc/hermes/.env:ro" \
+  "$(cat "$H/IMAGE")" \
+  gateway run --no-supervise -v

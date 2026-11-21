@@ -1,0 +1,126 @@
+#!/bin/bash
+# Root ExecStartPre: refuse to start Hermes if its config or environment has been loosened or is incomplete.
+# Protects against operator mistakes and file tampering that would land at the next restart, not
+# against a live compromised process.
+set -euo pipefail
+
+IMAGE=$(cat /opt/jarvis/hermes/IMAGE)
+H=/opt/jarvis/hermes
+DATA=/var/lib/jarvis/hermes
+fail() { echo "jarvis-preflight: REFUSING TO START: $*" >&2; exit 1; }
+
+# 1. Everything Hermes reads as config is root-owned and not writable by anyone else.
+for f in "$H/config.yaml" "$H/managed/config.yaml" "$H/managed/.env" "$H/managed/org.env" "$H/empty.env" "$H/SOUL.md" \
+         "$H/plugins/jarvis_guard/__init__.py" "$H/plugins/jarvis_guard/plugin.yaml" \
+         "$H/plugins/jarvis_guard/slack_format.py" "$H/plugins/jarvis_guard/slack_tools.py" \
+         "$H/plugins/jarvis_guard/slack_write_tools.py"; do
+  [ -f "$f" ] || fail "$f is missing"
+  [ "$(stat -c %u "$f")" = 0 ] || fail "$f is not owned by root"
+  [ $(( 0$(stat -c %a "$f") & 022 )) = 0 ] || fail "$f is group- or world-writable"
+done
+cmp -s "$H/config.yaml" "$H/managed/config.yaml" || fail "user and managed config.yaml differ"
+[ ! -s "$H/empty.env" ] || fail "$H/empty.env (mounted as the data-volume .env) is not empty"
+# SOUL.md is rendered from placeholders by install.sh; a leftover one means it was copied, not rendered.
+if grep -q '{{' "$H/SOUL.md"; then fail "$H/SOUL.md has an unrendered {{...}} placeholder (rerun install.sh)"; fi
+
+[ -s /run/jarvis/hermes.env ] || fail "/run/jarvis/hermes.env is missing (jarvis-secrets runs first)"
+
+# 2. No key that switches off the managed layer, the guard, or user gating, in any env Hermes gets.
+FORBIDDEN='^(HERMES_MANAGED_DIR|HERMES_IGNORE_USER_CONFIG|HERMES_SESSION_[A-Z_]*|API_SERVER_[A-Z_]*|HERMES_DUMP_REQUESTS|HERMES_ENABLE_PROJECT_PLUGINS)='
+ORG="$H/managed/org.env"
+for envf in /run/jarvis/hermes.env "$H/managed/.env" "$ORG"; do
+  if grep -Eq "$FORBIDDEN" "$envf"; then fail "forbidden key in $envf: $(grep -Eo "$FORBIDDEN" "$envf" | tr -d = | tr '\n' ' ')"; fi
+  if grep -Eiq '^(SLACK|GATEWAY)_ALLOW_ALL_USERS=(1|true|yes)' "$envf"; then fail "*_ALLOW_ALL_USERS is on in $envf"; fi
+  if grep -Eq '^GATEWAY_ALLOWED_USERS=.+' "$envf"; then fail "GATEWAY_ALLOWED_USERS is set in $envf"; fi
+done
+# Credential separation: security-tool credentials go to jarvis-tools only, never into the Hermes container.
+# The generic per-domain credential names jarvis-secrets writes, plus anything that looks like a token or key.
+PREFIXES='(EDR|IDP|SUITE|EMAIL_SECURITY|BRAND_PROTECTION|INSIDER_RISK|TICKETING|ENTERPRISE_SEARCH)'
+TOOLCRED="^(${PREFIXES}_(API_TOKEN|USERNAME|CLIENT_ID|CLIENT_SECRET|KEY_ID|PRIVATE_KEY_B64)|[A-Z0-9_]*_(API_TOKEN|CLIENT_SECRET)|[A-Z0-9_]*_PRIVATE_KEY[A-Z0-9_]*)="
+if grep -Eq "$TOOLCRED" /run/jarvis/hermes.env; then
+  fail "a security-tool credential is in /run/jarvis/hermes.env: $(grep -Eo "$TOOLCRED" /run/jarvis/hermes.env | tr -d = | tr '\n' ' ')"
+fi
+# org.env reaches both containers and is not secret: none of the credential names above, nothing credential-looking,
+# no Slack or Anthropic key, nothing that belongs in the managed .env. The <PREFIX>_PROVIDER, <PREFIX>_BASE_URL and
+# <PREFIX>_CONSOLE_URL settings, other non-secret <PREFIX>_* adapter settings and SANCTIONED_AI_GROUPS are fine.
+CRED="^(${PREFIXES}_(API_TOKEN|USERNAME|CLIENT_ID|CLIENT_SECRET|KEY_ID|PRIVATE_KEY_B64)|[A-Z0-9_]*(TOKEN|SECRET|PASSWORD|PRIVATE_KEY|API_KEY|CLIENT_ID|KEY_ID)[A-Z0-9_]*|ANTHROPIC_[A-Z0-9_]*|SLACK_[A-Z0-9_]*|HERMES_[A-Z0-9_]*|JARVIS_GUARD_[A-Z0-9_]*)="
+if grep -Eq "$CRED" "$ORG"; then fail "credential or Hermes key in $ORG: $(grep -Eo "$CRED" "$ORG" | tr -d = | tr '\n' ' ')"; fi
+# A key in both files is ambiguous (the managed .env overrides inside Hermes, but jarvis-tools sees org.env only).
+dups=$(comm -12 <(grep -Eo '^[A-Za-z_][A-Za-z0-9_]*=' "$H/managed/.env" | sort -u) <(grep -Eo '^[A-Za-z_][A-Za-z0-9_]*=' "$ORG" | sort -u) | tr -d = | tr '\n' ' ')
+[ -z "$dups" ] || fail "set in both managed/.env and org.env: $dups"
+for k in ORG_NAME ORG_EMAIL_DOMAINS ORG_SECURITY_TEAM; do
+  grep -Eq "^$k=.+" "$ORG" || fail "$ORG must set $k"
+done
+grep -Eq '^HERMES_SAFE_MODE=0$' "$H/managed/.env" || fail "managed .env must pin HERMES_SAFE_MODE=0"
+grep -Eq '^SLACK_ALLOWED_USERS=U[A-Z0-9]+' "$H/managed/.env" || fail "SLACK_ALLOWED_USERS is empty"
+grep -Eq '^JARVIS_SLACK_TEAM_ID=[TE][A-Z0-9]{6,}$' "$H/managed/.env" || fail "managed .env must pin JARVIS_SLACK_TEAM_ID (the guard denies every call without it)"
+# Writers (org.env JARVIS_WRITERS, shared with jarvis-tools): security-tool actions and create_slack_channel. Allowlisted
+# people only, never a trigger bot. Empty is allowed: a read-only deployment. Both Slack write tools post an audit
+# line in JARVIS_AUDIT_CHANNEL.
+for k in JARVIS_WRITERS JARVIS_TRIGGER_BOTS JARVIS_SECURITY_GROUP_FALLBACK; do
+  grep -Eq "^$k=(U[A-Z0-9]+(,U[A-Z0-9]+)*)?$" "$ORG" || fail "$ORG must set $k to comma-separated Slack user IDs (or leave it empty)"
+done
+grep -Eq '^JARVIS_SECURITY_GROUP=S[A-Z0-9]+$' "$ORG" || fail "$ORG must set JARVIS_SECURITY_GROUP to a Slack user group ID (S...)"
+grep -Eq '^JARVIS_AUDIT_CHANNEL=[CG][A-Z0-9]+$' "$H/managed/.env" || fail "managed .env must set JARVIS_AUDIT_CHANNEL (a channel ID)"
+for k in JARVIS_WRITERS JARVIS_TRIGGER_BOTS; do
+  if grep -q "^$k=" "$H/managed/.env"; then fail "$k belongs in org.env (shared with jarvis-tools), not the managed .env"; fi
+done
+if grep -q '^JARVIS_SLACK_WRITERS=' "$H/managed/.env" "$ORG"; then fail "JARVIS_SLACK_WRITERS was renamed: set JARVIS_WRITERS in org.env"; fi
+allowed_users=",$(grep -E '^SLACK_ALLOWED_USERS=' "$H/managed/.env" | cut -d= -f2),"
+trigger_bots=",$(grep -E '^JARVIS_TRIGGER_BOTS=' "$ORG" | cut -d= -f2),"
+for w in $(grep -E '^JARVIS_WRITERS=' "$ORG" | cut -d= -f2 | tr , ' '); do
+  case $allowed_users in *",$w,"*) ;; *) fail "writer $w is not in SLACK_ALLOWED_USERS";; esac
+  case $trigger_bots in *",$w,"*) fail "writer $w is a trigger bot";; esac
+done
+# Bot triggers: never "all"; "mentions" only with the guard's trigger-bot and channel lists set (the guard drops every
+# other bot). SLACK_ALLOW_BOTS lives only in the managed .env.
+grep -Eq '^SLACK_ALLOW_BOTS=(none|mentions)$' "$H/managed/.env" || fail "managed .env must set SLACK_ALLOW_BOTS to none or mentions"
+if grep -q '^SLACK_ALLOW_BOTS=' /run/jarvis/hermes.env; then fail "SLACK_ALLOW_BOTS is set in /run/jarvis/hermes.env"; fi
+if grep -Eq '^SLACK_ALLOW_BOTS=mentions$' "$H/managed/.env"; then
+  grep -Eq '^JARVIS_TRIGGER_BOTS=U[A-Z0-9]+(,U[A-Z0-9]+)*$' "$ORG" || fail "SLACK_ALLOW_BOTS=mentions needs JARVIS_TRIGGER_BOTS in org.env"
+  grep -Eq '^JARVIS_BOT_CHANNELS=[CG][A-Z0-9]+(,[CG][A-Z0-9]+)*$' "$H/managed/.env" || fail "SLACK_ALLOW_BOTS=mentions needs JARVIS_BOT_CHANNELS (channel IDs, no DMs)"
+  grep -Eq '^JARVIS_BOT_TRIGGERS_PER_HOUR=[0-9]+$' "$H/managed/.env" || fail "SLACK_ALLOW_BOTS=mentions needs JARVIS_BOT_TRIGGERS_PER_HOUR"
+  # The adapter's early sender check needs each trigger bot in SLACK_ALLOWED_USERS too.
+  allowed=",$(grep -E '^SLACK_ALLOWED_USERS=' "$H/managed/.env" | cut -d= -f2),"
+  for b in $(grep -E '^JARVIS_TRIGGER_BOTS=' "$ORG" | cut -d= -f2 | tr , ' '); do
+    case $allowed in *",$b,"*) ;; *) fail "trigger bot $b is not in SLACK_ALLOWED_USERS (the Slack adapter drops it early)";; esac
+  done
+fi
+
+# 3. Nothing planted on the data volume: no hooks/ (imported in-process regardless of plugins.enabled and
+#    HERMES_SAFE_MODE), no pairing approvals, no plugins outside the read-only mount.
+[ -z "$(find "$DATA/hooks" -mindepth 1 -print -quit 2>/dev/null)" ] || fail "$DATA/hooks is not empty"
+[ -z "$(find "$DATA/pairing" -type f -print -quit 2>/dev/null)" ] || fail "$DATA/pairing has entries"
+
+# 4. Both YAML files parse, and the keys the guard depends on are what we expect (image python, no network).
+docker run --rm --network none --user 10000:10000 --read-only --cap-drop ALL --security-opt no-new-privileges \
+  -v "$H/config.yaml:/c.yaml:ro" --entrypoint /opt/hermes/.venv/bin/python "$IMAGE" -I -c '
+import sys
+from utils import fast_safe_load  # the YAML loader the gateway uses, so this parses exactly what it will
+c = fast_safe_load(open("/c.yaml"))
+p = c.get("plugins", {})
+s = c["platforms"]["slack"]["extra"]
+m = (c.get("mcp_servers") or {}).get("jarvis_tools") or {}
+checks = {
+    "plugins.enabled has jarvis_guard": "jarvis_guard" in (p.get("enabled") or []),
+    "plugins.disabled is empty": not p.get("disabled"),
+    "plugins.isolation is in_process": p.get("isolation") == "in_process",
+    "gateway.strict is true": c["gateway"].get("strict") is True,
+    "gateway.trust_recent_files is false": c["gateway"].get("trust_recent_files") is False,
+    "unauthorized_dm_behavior is ignore": c.get("unauthorized_dm_behavior") == "ignore",
+    "api_server disabled": c["platforms"]["api_server"].get("enabled") is False,
+    "allow_admin_from set": bool(s.get("allow_admin_from")),
+    "allowed_channels present": "allowed_channels" in s,
+    "channels need an @-mention": all(s.get(k) is True for k in ("require_mention", "thread_require_mention", "strict_mention")),
+    "no free-response channels": not s.get("free_response_channels"),
+    "allow_bots only in the managed .env": "allow_bots" not in s,
+    "only the jarvis_tools MCP server": set((c.get("mcp_servers") or {}).keys()) == {"jarvis_tools"},
+    "jarvis_tools points at the jarvis-tools container": str(m.get("url", "")).startswith("http://jarvis-tools:8080/"),
+    "MCP sampling off": (m.get("sampling") or {}).get("enabled") is False,
+    "MCP elicitation off": (m.get("elicitation") or {}).get("enabled") is False,
+}
+bad = [k for k, ok in checks.items() if not ok]
+sys.exit("config check failed: " + "; ".join(bad) if bad else 0)
+' || fail "config.yaml failed the key checks"
+
+echo "jarvis-preflight: ok"

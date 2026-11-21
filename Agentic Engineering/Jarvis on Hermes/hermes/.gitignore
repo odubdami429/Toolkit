@@ -1,0 +1,5 @@
+# Deployment files: copy the .example templates and fill them in. Never commit the real ones.
+managed/.env
+managed/org.env
+managed/host.env
+__pycache__/

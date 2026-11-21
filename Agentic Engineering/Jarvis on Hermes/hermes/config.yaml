@@ -1,0 +1,110 @@
+# Hermes v0.23.1 config for Jarvis. Installed twice, both root-owned and mounted read-only:
+#   /opt/data/config.yaml   (user layer)
+#   /etc/hermes/config.yaml (managed overlay, so a changed user layer can't loosen a security key)
+# A misplaced key is ignored silently. Prove the effective config with `jarvis-hermes-config-dump`.
+
+_config_version: 53   # v0.23.1 schema; migrations are pinned off (HERMES_SKIP_CONFIG_MIGRATION=1)
+
+model:
+  provider: anthropic        # never "auto": its last fallback is Bedrock via the instance role
+  default: claude-opus-5-5   # model.name is not read
+  reasoning_effort: high
+
+agent:
+  max_turns: 50
+  restart_drain_timeout: 120
+  # Second layer behind platform_toolsets. Unknown names are ignored silently.
+  disabled_toolsets: [terminal, file, browser, code_execution, delegation, memory, cronjob, web, search,
+                      image_gen, tts, todo, computer_use, kanban, connections, session_search, clarify]
+
+platform_toolsets:
+  slack: [skills, jarvis_guard, mcp-jarvis_tools]
+
+tools:
+  tool_search: { enabled: "off" }
+
+memory: { memory_enabled: false, user_profile_enabled: false }
+auxiliary: { background_review: { enabled: false } }
+curator: { enabled: false }
+onboarding: { profile_build: "off" }   # first DM otherwise offers to build a user profile
+kanban: { dispatch_in_gateway: false } # don't run the embedded kanban dispatcher
+skills:
+  external_dirs: [/opt/jarvis/skills]
+  write_approval: true
+
+plugins:
+  enabled: [jarvis_guard]
+  disabled: []                 # "disabled wins" over enabled, so pin it empty
+  isolation: in_process        # "host" mode loses the session ContextVars the guard reads
+  hook_callback_timeout: 30    # pre_tool_call timeouts block
+  auto_update_check_hours: 0
+
+approvals:
+  mode: manual
+  approvers: []
+  timeout: 300
+
+security: { allow_lazy_installs: false, allow_private_urls: false }
+auth: { adopt_external_logins: false }
+updates: { check: false }
+model_catalog: { enabled: false }
+stt_enabled: false
+context_file_max_chars: 60000
+
+sessions: { auto_prune: true, retention_days: 30 }
+
+display:
+  busy_input_mode: queue       # default "interrupt" merges turns, which empties the actor
+  platforms:
+    slack:
+      live_status: verb        # "full" shows tool arguments in the channel
+      tool_progress: "off"
+
+# Top level beats gateway.*, so pin both.
+thread_sessions_per_user: false
+group_sessions_per_user: true
+unauthorized_dm_behavior: ignore
+
+gateway:
+  strict: true
+  trust_recent_files: false
+  media_delivery_allow_dirs: []
+  allow_all_users: false
+  thread_sessions_per_user: false
+  group_sessions_per_user: true
+  unauthorized_dm_behavior: ignore
+
+platforms:
+  api_server: { enabled: false }
+  webhook: { enabled: false }
+  slack:
+    extra:
+      require_mention: true
+      thread_require_mention: true
+      strict_mention: true
+      reply_in_thread: true
+      # Empty means every channel the bot is added to. Channels still need an @-mention from an allowlisted user
+      # (SLACK_ALLOWED_USERS); there are no free-response channels.
+      allowed_channels: ""
+      # Any value turns command gating on. U0000000000 doesn't exist, so nobody is an admin. If you ever need one,
+      # use a dedicated break-glass account, never someone's daily account.
+      allow_admin_from: [U0000000000]
+      group_allow_admin_from: [U0000000000]
+
+# Specialist agents run in the jarvis-tools container, each with its own prompt, tools and model loop; Jarvis gets
+# back only the specialist's answer. Every call carries jarvis_auth, injected and signed by jarvis_guard.
+mcp_servers:
+  jarvis_tools:
+    url: http://jarvis-tools:8080/mcp
+    headers: { Authorization: "Bearer ${JARVIS_TOOLS_TOKEN}" }
+    timeout: 540           # a specialist investigation can take minutes; jarvis-tools stops itself at 480 s
+    connect_timeout: 30
+    tools:
+      include: [ask_edr_specialist, ask_idp_specialist, ask_suite_specialist, ask_email_security_specialist,
+                ask_brand_protection_specialist, ask_insider_risk_specialist, ask_web_research,
+                search_tickets, get_ticket_details, search_wiki, get_wiki_page_details,
+                enterprise_search, enterprise_chat, enterprise_read_document]
+      resources: false
+      prompts: false
+    sampling: { enabled: false }
+    elicitation: { enabled: false }

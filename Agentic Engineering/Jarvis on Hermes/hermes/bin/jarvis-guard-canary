@@ -1,0 +1,34 @@
+#!/bin/bash
+# ExecStartPost: stop the gateway unless jarvis_guard is live. Hermes skips a plugin that fails to import, and
+# ignores the registrations of one whose register() overruns the 10 s load timeout, then keeps running without it.
+#
+# Hermes loads plugins before it connects to Slack, so the guard's "loaded" line (carrying this start's nonce) must
+# appear in THIS container's logs before "slack connected". Fail as soon as Slack connects without it, or Hermes
+# reports a jarvis_guard load problem, or WAIT seconds pass. Measured on v0.23.1: the guard loads ~4 s before Slack
+# connects, so the unguarded window on failure is about a second.
+set -euo pipefail
+WAIT=60
+NONCE=$(cat /run/jarvis/guard-nonce)
+refuse() { echo "jarvis-guard-canary: REFUSING TO RUN: $*; stopping the gateway" >&2; exit 1; }
+
+for _ in $(seq 1 "$WAIT"); do
+  CID=$(docker inspect -f '{{.Id}}' jarvis-hermes 2>/dev/null) || { sleep 1; continue; }
+  LOG=$(journalctl CONTAINER_ID_FULL="$CID" --no-pager -o cat 2>/dev/null || true)
+
+  if grep -Eq "Plugin '?jarvis_guard'?.*(timed out|failed|error|ignored|skipp)" <<<"$LOG"; then
+    refuse "Hermes reported a jarvis_guard load problem: $(grep -Em1 "Plugin '?jarvis_guard'?" <<<"$LOG" | cut -c1-200)"
+  fi
+  # "|| true": no match yet is the normal state for the first seconds, not an error under pipefail.
+  loaded=$(grep -nF '"jarvis_guard": "loaded"' <<<"$LOG" | grep -F "\"boot_nonce\": \"$NONCE\"" | head -1 | cut -d: -f1 || true)
+  connected=$(grep -nF 'slack connected' <<<"$LOG" | head -1 | cut -d: -f1 || true)
+
+  if [ -n "$connected" ] && { [ -z "$loaded" ] || [ "$loaded" -gt "$connected" ]; }; then
+    refuse "Slack connected before jarvis_guard registered"
+  fi
+  if [ -n "$loaded" ] && [ -n "$connected" ]; then
+    echo "jarvis-guard-canary: jarvis_guard loaded before Slack connected (nonce ${NONCE:0:8}…)"
+    exit 0
+  fi
+  sleep 1
+done
+refuse "no guard/connect signal within ${WAIT}s"

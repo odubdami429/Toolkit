@@ -1,0 +1,6 @@
+# Direct dependencies. requirements.lock pins the full set (e.g. `pip-compile --generate-hashes requirements.in -o requirements.lock` or `pip freeze` in a clean python:3.12-slim).
+mcp==2.3.0          # same version as the Hermes client
+anthropic
+httpx
+PyJWT[crypto]       # JWT client assertions for adapters that need them; already pinned via mcp
+uvicorn

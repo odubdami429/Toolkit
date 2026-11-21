@@ -1,0 +1,19 @@
+# Copy to terraform.tfvars (gitignored) and adjust.
+aws_region          = "us-east-1"
+allowed_account_ids = ["123456789012"]
+name                = "jarvis"
+vpc_cidr            = "10.251.0.0/24"
+instance_type       = "t4g.large"
+
+# Session Manager logging is account-wide; point this at your existing log group.
+ssm_session_log_group_name = "/ssm/sessions"
+
+# Optional hardening
+# secret_kms_key_id        = "arn:aws:kms:us-east-1:123456789012:key/..."
+# permissions_boundary_arn = "arn:aws:iam::123456789012:policy/workload-boundary"
+
+default_tags = {
+  provisioner = "terraform"
+  app         = "jarvis"
+  env         = "prod"
+}

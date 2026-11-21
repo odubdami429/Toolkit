@@ -1,0 +1,53 @@
+#cloud-config
+#
+# Jarvis host bootstrap. Changing this file replaces the instance (user_data_replace_on_change); the data volume
+# is kept.
+
+package_update: true
+packages:
+  - docker
+  - iptables-nft
+
+write_files:
+  # Containers must never reach IMDS or any other link-local service. Re-added on every Docker start, once.
+  - path: /etc/systemd/system/docker.service.d/10-block-link-local.conf
+    permissions: "0644"
+    content: |
+      [Service]
+      ExecStartPost=/bin/sh -c 'iptables -C DOCKER-USER -d 169.254.0.0/16 -j DROP 2>/dev/null || iptables -I DOCKER-USER -d 169.254.0.0/16 -j DROP'
+
+  # Formats the data volume on first use only, mounts it at /var/lib/jarvis and lays out HERMES_HOME for the
+  # non-root Hermes container (UID 10000). Safe to re-run.
+  - path: /usr/local/sbin/jarvis-data-volume
+    permissions: "0755"
+    content: |
+      #!/bin/bash
+      set -euo pipefail
+
+      dev=/dev/disk/by-id/nvme-Amazon_Elastic_Block_Store_${replace(data_volume_id, "-", "")}
+      mnt=/var/lib/jarvis
+
+      # The attachment is created after the instance, so wait for it
+      for _ in $(seq 1 60); do
+        [ -e "$dev" ] && break
+        sleep 5
+      done
+      [ -e "$dev" ] || { echo "data volume never attached: $dev" >&2; exit 1; }
+
+      if ! blkid "$dev" >/dev/null 2>&1; then
+        mkfs.xfs -L jarvis-data "$dev"
+      fi
+
+      uuid=$(blkid -s UUID -o value "$dev")
+      mkdir -p "$mnt"
+      grep -q "$uuid" /etc/fstab || echo "UUID=$uuid $mnt xfs defaults,nofail,nodev,nosuid 0 2" >> /etc/fstab
+      mountpoint -q "$mnt" || mount "$mnt"
+
+      install -d -o 10000 -g 10000 -m 0700 "$mnt/hermes"
+      install -d -o root -g root -m 0755 "$mnt/config"
+
+runcmd:
+  - [systemctl, disable, --now, sshd]
+  - [/usr/local/sbin/jarvis-data-volume]
+  - [systemctl, daemon-reload]
+  - [systemctl, enable, --now, docker]
